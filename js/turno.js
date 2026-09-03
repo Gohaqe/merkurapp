@@ -14,6 +14,7 @@ let juegosUnicosAsignados = new Set();
 let progNombreGlobal = "";
 let progPozosGlobal = 0;
 let denominacionesSeleccionadas = [];
+let todasLasSalas = [];
 
 // ==========================================
 // 2. INICIALIZACIÓN Y CARGA DE DATOS
@@ -34,13 +35,102 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 async function cargarSelectores() {
-    // Cargar Salas
-    const { data: salas } = await supabaseClient.from('salas').select('id, nombre, establecimiento');
-    const selSala = document.getElementById('selSala');
+    // 1. Cargar Salas en la memoria (Para el buscador)
+    const { data: salas } = await supabaseClient.from('salas').select('id, nombre, distrito, direccion, distrito, provincia, departamento');
     if (salas) {
-        selSala.innerHTML = '<option value="">Seleccione una sala...</option>' + 
-            salas.map(s => `<option value="${s.id}">${s.nombre} ${s.establecimiento ? `(${s.establecimiento})` : ''}</option>`).join('');
+        todasLasSalas = salas.map(s => {
+            const nombreCompleto = s.nombre ? `${s.nombre} ${s.distrito ? `(${s.distrito})` : ''}` : (s.establecimiento || 'Sala sin nombre');
+            return {
+                id: s.id,
+                texto: nombreCompleto,
+                direccion: s.direccion || 'Dirección no registrada',
+                distrito: s.distrito || '',
+                provincia: s.provincia || '',
+                departamento: s.departamento || ''
+            };
+        });
     }
+// ==========================================
+// BUSCADOR INTELIGENTE DE SALAS (Sin tildes/mayúsculas + Dirección)
+// ==========================================
+const inputBuscarSala = document.getElementById('inputBuscarSala');
+const listaSalasResultados = document.getElementById('listaSalasResultados');
+const hiddenSelSala = document.getElementById('selSala');
+
+// Nuevas referencias para la dirección
+const infoSalaDetalle = document.getElementById('infoSalaDetalle');
+const txtSalaDireccion = document.getElementById('txtSalaDireccion');
+const txtSalaUbicacion = document.getElementById('txtSalaUbicacion');
+
+function normalizarTexto(texto) {
+    if(!texto) return "";
+    return texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+}
+
+inputBuscarSala.addEventListener('input', function() {
+    const termino = normalizarTexto(this.value);
+    listaSalasResultados.innerHTML = ''; 
+    hiddenSelSala.value = ''; 
+    
+    // Si la anfitriona vuelve a escribir, ocultamos el detalle de la dirección
+    infoSalaDetalle.classList.add('hidden');
+
+    if (termino.length === 0) {
+        listaSalasResultados.classList.add('hidden');
+        return;
+    }
+
+    const resultados = todasLasSalas.filter(sala => 
+        normalizarTexto(sala.texto).includes(termino)
+    );
+
+    if (resultados.length > 0) {
+        listaSalasResultados.classList.remove('hidden');
+        resultados.forEach(sala => {
+            const li = document.createElement('li');
+            li.className = "p-3 hover:bg-blue-50 cursor-pointer border-b border-slate-100 text-sm text-slate-700 font-medium";
+            li.textContent = sala.texto;
+            
+            // Cuando selecciona una sala:
+            li.addEventListener('click', () => {
+                inputBuscarSala.value = sala.texto; 
+                hiddenSelSala.value = sala.id; 
+                listaSalasResultados.classList.add('hidden'); 
+                
+                // MÁGIA: Mostramos la dirección
+                txtSalaDireccion.textContent = sala.direccion;
+                
+                // Armamos el texto de "Distrito - Provincia - Departamento" ignorando los que estén vacíos
+                let ubicacion = [];
+                if (sala.distrito) ubicacion.push(sala.distrito);
+                if (sala.provincia) ubicacion.push(sala.provincia);
+                if (sala.departamento) ubicacion.push(sala.departamento);
+                
+                txtSalaUbicacion.textContent = ubicacion.length > 0 ? ubicacion.join(' - ') : 'Ubicación no especificada';
+                
+                // Hacemos visible el cuadrito
+                infoSalaDetalle.classList.remove('hidden');
+            });
+            listaSalasResultados.appendChild(li);
+        });
+    } else {
+        listaSalasResultados.classList.remove('hidden');
+        listaSalasResultados.innerHTML = '<li class="p-3 text-slate-400 text-sm italic">No se encontraron salas...</li>';
+    }
+});
+
+document.addEventListener('click', (e) => {
+    if (!inputBuscarSala.contains(e.target) && !listaSalasResultados.contains(e.target)) {
+        listaSalasResultados.classList.add('hidden');
+    }
+});
+
+// Ocultar la lista si toca en cualquier otra parte de la pantalla
+document.addEventListener('click', (e) => {
+    if (!inputBuscarSala.contains(e.target) && !listaSalasResultados.contains(e.target)) {
+        listaSalasResultados.classList.add('hidden');
+    }
+});
 
     // Cargar Juegos
     const { data: juegos } = await supabaseClient.from('juegos').select('id, juego');
