@@ -34,9 +34,30 @@
     <div id="seccionConfiguracion" class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 space-y-4">
       <h2 class="font-bold text-slate-700 border-b pb-2">1. Iniciar Turno</h2>
       
-      <div>
+      <!-- Buscador Inteligente de Sala -->
+      <div class="relative z-20">
         <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Sala</label>
-        <select id="selSala" class="w-full border rounded-xl p-3 bg-slate-50 outline-none"><option>Cargando...</option></select>
+        <input type="text" id="inputBuscarSala" autocomplete="off" class="w-full border rounded-xl p-3 bg-slate-50 outline-none focus:border-blue-500 transition-colors" placeholder="Escribe para buscar (Ej: atlantic)...">
+        
+        <!-- Input oculto que guarda el ID real de la sala para la base de datos -->
+        <input type="hidden" id="selSala">
+        <!-- Buscador Inteligente de Sala -->
+      
+
+        <!-- NUEVO: Cuadro flotante que mostrará la dirección (Oculto por defecto) -->
+        <div id="infoSalaDetalle" class="hidden mt-2 bg-indigo-50 p-3 rounded-xl border border-indigo-100 shadow-inner">
+          <p id="txtSalaDireccion" class="text-xs font-medium text-slate-700"></p>
+          <p id="txtSalaUbicacion" class="text-[10px] text-indigo-600 font-bold uppercase mt-0.5"></p>
+        </div>
+        
+        <!-- Lista desplegable de resultados -->
+        <ul id="listaSalasResultados" class="absolute w-full bg-white border border-slate-200 rounded-xl shadow-xl mt-1 max-h-48 overflow-y-auto hidden">
+        </ul>
+      </div>
+        
+        <!-- Lista desplegable de resultados -->
+        <ul id="listaSalasResultados" class="absolute w-full bg-white border border-slate-200 rounded-xl shadow-xl mt-1 max-h-48 overflow-y-auto hidden">
+        </ul>
       </div>
 
       <div class="grid grid-cols-2 gap-4">
