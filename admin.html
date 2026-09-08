@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Panel de Administración</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-slate-100 text-slate-800 antialiased min-h-screen flex flex-col">
+
+  <!-- Header -->
+  <header class="bg-slate-900 text-white px-4 py-4 shadow-md flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <button onclick="window.location.href='dashboard.html'" class="bg-slate-800 p-2 rounded-lg text-slate-300 hover:text-white">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+      </button>
+      <div>
+        <h1 class="text-sm text-slate-400 leading-none">Panel de</h1>
+        <h2 class="text-lg font-black leading-tight">Administración</h2>
+      </div>
+    </div>
+  </header>
+
+  <!-- Pestañas de Navegación -->
+  <div class="bg-white shadow-sm overflow-x-auto">
+    <div class="flex px-2 min-w-max border-b border-slate-200" id="tabsAdmin">
+      <button onclick="cambiarTab('plataformas')" id="tab_plataformas" class="px-4 py-3 text-sm font-bold text-blue-600 border-b-2 border-blue-600">Plataformas</button>
+      <button onclick="cambiarTab('gabinetes')" id="tab_gabinetes" class="px-4 py-3 text-sm font-bold text-slate-400 hover:text-slate-600 border-b-2 border-transparent">Gabinetes</button>
+      <button onclick="cambiarTab('progresivos')" id="tab_progresivos" class="px-4 py-3 text-sm font-bold text-slate-400 hover:text-slate-600 border-b-2 border-transparent">Progresivos</button>
+      <button onclick="cambiarTab('denominaciones')" id="tab_denominaciones" class="px-4 py-3 text-sm font-bold text-slate-400 hover:text-slate-600 border-b-2 border-transparent">Denominaciones</button>
+    </div>
+  </div>
+
+  <main class="flex-1 p-4 flex flex-col max-w-2xl mx-auto w-full">
+    
+    <div class="flex justify-between items-center mb-4">
+      <h3 class="font-bold text-slate-700" id="tituloSeccion">Gestionar Plataformas</h3>
+      <button onclick="abrirModalCrud()" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold py-2 px-4 rounded-lg shadow-sm flex gap-1 items-center">
+        <span>+</span> Nuevo
+      </button>
+    </div>
+
+    <!-- Tabla de Datos -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex-1">
+      <ul id="listaDatos" class="divide-y divide-slate-100">
+        <!-- JS inyecta los datos aquí -->
+        <li class="p-4 text-center text-slate-400 text-sm">Cargando...</li>
+      </ul>
+    </div>
+  </main>
+
+  <!-- MODAL CRUD (Crear/Editar) -->
+  <div id="modalCrud" class="fixed inset-0 bg-slate-900/80 z-[60] flex items-center justify-center hidden opacity-0 transition-opacity duration-300 px-4">
+    <div class="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl transform scale-95 transition-transform duration-300" id="contentCrud">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="text-lg font-black text-blue-900" id="tituloModal">Nuevo Registro</h3>
+        <button onclick="cerrarModalCrud()" class="text-slate-400 hover:text-slate-600">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+        </button>
+      </div>
+
+      <div id="formularioCrud" class="space-y-4">
+        <!-- JS inyecta los inputs aquí según la pestaña activa -->
+      </div>
+
+      <button id="btnGuardarCrud" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow-md mt-6">
+        Guardar Datos
+      </button>
+    </div>
+  </div>
+
+  <script src="js/supabase.js"></script>
+  <script src="js/admin.js"></script>
+</body>
+</html>

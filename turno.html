@@ -79,10 +79,20 @@
         <span id="infoTurnoTexto" class="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded-md font-bold">--:-- a --:--</span>
       </h2>
       
-      <div>
-        <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Juego</label>
-        <select id="selJuego" class="w-full border rounded-xl p-3 bg-slate-50 outline-none"><option>Cargando...</option></select>
-      </div>
+      <!-- SELECTOR DE PLATAFORMA (Antes Juego) -->
+        <div>
+          <label class="block text-xs font-bold text-slate-500 mb-1 uppercase tracking-wider">Plataforma (Mix)</label>
+          <div class="relative">
+            <!-- Mantenemos id="selJuego" para que JavaScript siga funcionando perfecto -->
+            <select id="selJuego" class="w-full bg-white border border-slate-200 rounded-xl p-3 text-sm focus:border-blue-500 outline-none appearance-none shadow-sm text-slate-700 font-medium">
+              <option value="" disabled selected>Seleccione una plataforma...</option>
+              <!-- JS llenará esto -->
+            </select>
+            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-400">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+            </div>
+          </div>
+        </div>
       
       <div class="grid grid-cols-3 gap-3">
         <div class="col-span-2">
@@ -199,18 +209,15 @@
   <!-- MODAL: SELECCION DE DENOMINACIONES -->
   <div id="modalDenominaciones" class="fixed inset-0 bg-slate-900/80 z-[60] flex flex-col justify-end hidden opacity-0 transition-opacity duration-300">
     <div class="bg-white rounded-t-3xl w-full p-6 pb-10 shadow-2xl transform translate-y-full transition-transform duration-300" id="contentDenominaciones">
-      <h3 class="text-xl font-black text-slate-800 mb-4">Seleccionar Denominaciones</h3>
-      <p class="text-xs text-slate-500 mb-4">Puedes seleccionar más de una opción.</p>
+      <!-- Este es el interior del modal de denominaciones -->
+      <h3 class="text-lg font-black text-blue-900 mb-4 text-center">Seleccionar Denominaciones</h3>
       
-      <div class="grid grid-cols-3 gap-3 mb-6" id="gridBotonesDenom">
-        <button class="denom-btn border-2 border-slate-200 text-slate-600 font-bold p-4 rounded-2xl transition-colors">0.01</button>
-        <button class="denom-btn border-2 border-slate-200 text-slate-600 font-bold p-4 rounded-2xl transition-colors">0.02</button>
-        <button class="denom-btn border-2 border-slate-200 text-slate-600 font-bold p-4 rounded-2xl transition-colors">0.05</button>
-        <button class="denom-btn border-2 border-slate-200 text-slate-600 font-bold p-4 rounded-2xl transition-colors">0.10</button>
-        <button class="denom-btn border-2 border-slate-200 text-slate-600 font-bold p-4 rounded-2xl transition-colors">0.20</button>
+      <!-- AQUÍ JAVASCRIPT INYECTARÁ LOS BOTONES DESDE LA BASE DE DATOS -->
+      <div id="contenedorBotonesDenom" class="flex flex-wrap justify-center gap-3 mb-6">
+          <p class="text-sm text-slate-400">Cargando denominaciones...</p>
       </div>
 
-      <button id="btnConfirmarDenom" class="w-full bg-blue-600 text-white font-bold py-4 rounded-xl shadow-lg active:scale-95 transition-all">
+      <button id="btnConfirmarDenom" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow-md transition-all active:scale-95">
         Confirmar Selección
       </button>
     </div>
