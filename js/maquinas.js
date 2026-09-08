@@ -432,7 +432,7 @@ document.getElementById('btnCerrarModal').addEventListener('click', () => {
 });
 
 // ==========================================
-// VENTANA FLOTANTE: DENOMINACIONES
+// VENTANA FLOTANTE: DENOMINACIONES (DINÁMICAS)
 // ==========================================
 document.getElementById('btnAbrirModalDenom').addEventListener('click', () => {
     document.getElementById('modalDenominaciones').classList.remove('hidden');
@@ -442,20 +442,46 @@ document.getElementById('btnAbrirModalDenom').addEventListener('click', () => {
     }, 10);
 });
 
-document.querySelectorAll('.denom-btn').forEach(btn => {
-    btn.addEventListener('click', function() {
-        const val = this.textContent;
-        this.classList.toggle('bg-blue-100');
-        this.classList.toggle('border-blue-500');
-        this.classList.toggle('text-blue-700');
+// Esta función dibuja los botones con la información que llegó de Supabase
+window.renderizarBotonesDenominacion = function() {
+    const contenedor = document.getElementById('contenedorBotonesDenom');
+    if(!contenedor) return;
+    contenedor.innerHTML = '';
+    
+    if (window.todasLasDenominaciones.length === 0) {
+        contenedor.innerHTML = '<p class="text-sm text-slate-400">No hay denominaciones configuradas.</p>';
+        return;
+    }
+
+    window.todasLasDenominaciones.forEach(val => {
+        const isSelected = denominacionesSeleccionadas.includes(val);
+        // Clases para el botón (Azul si está seleccionado, Gris si no)
+        const btnClases = isSelected 
+            ? 'px-4 py-2 rounded-xl font-bold transition-colors border-2 bg-blue-100 border-blue-500 text-blue-700 shadow-sm' 
+            : 'px-4 py-2 rounded-xl font-bold transition-colors border-2 bg-white border-slate-200 text-slate-600 hover:bg-slate-50';
         
-        if(denominacionesSeleccionadas.includes(val)) {
-            denominacionesSeleccionadas = denominacionesSeleccionadas.filter(d => d !== val);
-        } else {
-            denominacionesSeleccionadas.push(val);
-        }
+        contenedor.innerHTML += `<button type="button" class="${btnClases}" onclick="toggleDenominacion('${val}', this)">${val}</button>`;
     });
-});
+};
+
+// Función que se dispara al tocar un botón dinámico
+window.toggleDenominacion = function(val, btnElement) {
+    // Cambiar estilos visuales
+    btnElement.classList.toggle('bg-blue-100');
+    btnElement.classList.toggle('border-blue-500');
+    btnElement.classList.toggle('text-blue-700');
+    btnElement.classList.toggle('shadow-sm');
+    btnElement.classList.toggle('bg-white');
+    btnElement.classList.toggle('border-slate-200');
+    btnElement.classList.toggle('text-slate-600');
+    
+    // Agregar o quitar de la memoria
+    if(denominacionesSeleccionadas.includes(val)) {
+        denominacionesSeleccionadas = denominacionesSeleccionadas.filter(d => d !== val);
+    } else {
+        denominacionesSeleccionadas.push(val);
+    }
+};
 
 document.getElementById('btnConfirmarDenom').addEventListener('click', () => {
     document.getElementById('modalDenominaciones').classList.add('opacity-0');

@@ -27,7 +27,8 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
         // Guardamos la sesión de forma persistente
         localStorage.setItem('usuario_id', data.id);
         localStorage.setItem('usuario_nombre', `${data.nombres} ${data.apellidos}`);
-        
+        localStorage.setItem('usuario_cargo', data.cargo);
+
         window.location.replace('dashboard.html');
     }
 });

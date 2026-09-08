@@ -1,6 +1,8 @@
 // ==========================================
 // VARIABLES GLOBALES Y ESTADO
 // ==========================================
+window.todasLasDenominaciones = []; // <-- AQUÍ ESTÁ LA NUEVA VARIABLE GLOBAL
+
 let reporteIdActual = localStorage.getItem('turno_activo_id');
 let turnoInicioLocal = localStorage.getItem('turno_ini');
 let turnoFinLocal = localStorage.getItem('turno_fin');
@@ -32,6 +34,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 async function cargarSelectores() {
+    // 1. CARGAR SALAS
     const { data: salas } = await supabaseClient.from('salas').select('id, nombre, distrito, direccion, provincia, departamento');
     if (salas) {
         todasLasSalas = salas.map(s => {
@@ -46,6 +49,7 @@ async function cargarSelectores() {
         });
     }
 
+    // 2. CARGAR PROGRESIVOS
     const { data: progresivos } = await supabaseClient.from('progresivos').select('*');
     if (progresivos) {
         todosLosProgresivos = progresivos;
@@ -56,21 +60,30 @@ async function cargarSelectores() {
         });
     }
 
-    // --- CÓDIGO CORREGIDO ---
+    // 3. CARGAR JUEGOS (PLATAFORMAS)
     const { data: juegos } = await supabaseClient.from('juegos').select('id, juego');
     if (juegos) {
-        document.getElementById('selJuego').innerHTML = '<option value="">Seleccione un juego...</option>' + 
+        document.getElementById('selJuego').innerHTML = '<option value="">Seleccione una plataforma...</option>' + 
             juegos.map(j => `<option value="${j.id}">${j.juego}</option>`).join('');
     }
 
+    // 4. CARGAR GABINETES
     const { data: gabinetes } = await supabaseClient.from('gabinetes').select('id, modelo');
     if (gabinetes) {
         document.getElementById('selGabinete').innerHTML = '<option value="">Seleccione un gabinete...</option>' + 
             gabinetes.map(g => `<option value="${g.id}">${g.modelo}</option>`).join('');
     }
+
+    // 5. CARGAR DENOMINACIONES (NUEVO)
+    const { data: dataDenom } = await supabaseClient.from('denominaciones').select('valor');
+    if (dataDenom) {
+        // Ordenamos los valores numéricamente
+        window.todasLasDenominaciones = dataDenom.map(d => d.valor).sort((a, b) => parseFloat(a) - parseFloat(b));
+        // Llamamos a la función que dibuja los botones
+        if(typeof renderizarBotonesDenominacion === 'function') renderizarBotonesDenominacion();
+    }
 }
 
-// --- CÓDIGO CORREGIDO ---
 async function cargarAsignacionesPrevias() {
     const { data } = await supabaseClient
         .from('reporte_asignaciones')

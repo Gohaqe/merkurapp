@@ -1,5 +1,7 @@
 // js/dashboard.js
-
+if (localStorage.getItem('usuario_cargo') === 'Admin' || localStorage.getItem('usuario_cargo') === 'Administrador') {
+    document.getElementById('btnIrAdmin').classList.remove('hidden');
+}
 // 1. Verificamos si la sesión de usuario existe
 const userId = localStorage.getItem('usuario_id');
 if (!userId) {
