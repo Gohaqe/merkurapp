@@ -41,8 +41,97 @@
     </div>
 
   </main>
+<!-- MODAL: DETALLE DE TURNO (TIPO REPORTE PDF) -->
+  <div id="modalDetalleTurno" class="fixed inset-0 bg-slate-900/80 z-[50] flex flex-col justify-end hidden opacity-0 transition-opacity duration-300">
+    <div class="bg-slate-100 rounded-t-3xl w-full p-6 pb-8 max-h-[92vh] overflow-y-auto shadow-2xl transform translate-y-full transition-transform duration-300" id="contentDetalleTurno">
+      
+      <!-- Cabecera del Reporte -->
+      <div class="bg-white rounded-2xl p-4 shadow-sm mb-4 relative">
+        <button onclick="cerrarModalDetalle()" class="absolute top-4 right-4 bg-slate-50 p-1.5 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+        </button>
+        <h3 class="text-xl font-black text-blue-900 leading-tight pr-8" id="detSalaNombre">Cargando...</h3>
+        <p class="text-slate-500 text-xs font-bold mt-1 uppercase tracking-wide" id="detFechaHora">--/--/---- • --:-- a --:--</p>
+      </div>
 
+      <!-- Contenedor del Documento -->
+      <div class="space-y-4">
+        
+        <!-- Bloque de Progresivos (Oculto si no hay) -->
+        <div id="wrapperProgresivos" class="bg-white p-4 rounded-2xl shadow-sm hidden">
+          <h4 class="text-[10px] font-bold text-indigo-600 uppercase tracking-wider border-b border-slate-100 pb-2 mb-2">Cierre de Progresivos</h4>
+          <div id="detProgresivos">
+            <!-- JavaScript inyectará las etiquetas aquí -->
+          </div>
+        </div>
+
+        <!-- AQUÍ SE INYECTARÁ EL DETALLE OPERATIVO DE CADA MÁQUINA -->
+        <div id="detMaquinasContenedor" class="space-y-3">
+            <!-- JS dibuja las tarjetas con horas y fallas aquí -->
+        </div>
+
+        <!-- Comentarios Generales -->
+        <div class="bg-white p-4 rounded-2xl shadow-sm space-y-4">
+            <div>
+              <h4 class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Comentarios del Producto</h4>
+              <p id="detComProducto" class="text-sm text-slate-700 font-medium bg-slate-50 p-2 rounded-lg"></p>
+            </div>
+            <div>
+              <h4 class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Comentarios de la Sala</h4>
+              <p id="detComSala" class="text-sm text-slate-700 font-medium bg-slate-50 p-2 rounded-lg"></p>
+            </div>
+        </div>
+
+        <!-- Botón de Edición Mágico -->
+        <button id="btnReabrirTurno" class="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold py-4 rounded-xl shadow-lg transition-all active:scale-95 text-base flex items-center justify-center gap-2 mt-6">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+          Editar este Reporte
+        </button>
+      </div>
+    </div>
+  </div>
   <script src="js/supabase.js"></script>
   <script src="js/dashboard.js"></script>
+
+  <!-- MODAL: DETALLE DE TURNO -->
+  <div id="modalDetalleTurno" class="fixed inset-0 bg-slate-900/80 z-[50] flex flex-col justify-end hidden opacity-0 transition-opacity duration-300">
+    <div class="bg-white rounded-t-3xl w-full p-6 pb-8 max-h-[90vh] overflow-y-auto shadow-2xl transform translate-y-full transition-transform duration-300" id="contentDetalleTurno">
+      
+      <!-- Cabecera -->
+      <div class="flex justify-between items-start mb-4">
+        <div>
+          <h3 class="text-xl font-black text-blue-900 leading-tight" id="detSalaNombre">Cargando...</h3>
+          <p class="text-slate-500 text-sm font-medium mt-1" id="detFechaHora">--/--/---- • --:-- a --:--</p>
+        </div>
+        <button onclick="cerrarModalDetalle()" class="bg-slate-100 p-2 rounded-full text-slate-500 hover:bg-slate-200 active:scale-95 transition-transform">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+        </button>
+      </div>
+
+      <!-- Contenido de solo lectura -->
+      <div class="space-y-4">
+        
+        
+
+        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+          <h4 class="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Comentarios del Producto</h4>
+          <p id="detComProducto" class="text-sm text-slate-700 font-medium"></p>
+        </div>
+        
+        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+          <h4 class="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Comentarios de la Sala</h4>
+          <p id="detComSala" class="text-sm text-slate-700 font-medium"></p>
+        </div>
+
+        <p class="text-[10px] text-center text-slate-400 font-medium px-4 mt-2">¿Olvidaste registrar una máquina, llenar las horas o reportar una falla?</p>
+
+        <!-- Botón Mágico -->
+        <button id="btnReabrirTurno" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-lg transition-all active:scale-95 text-lg flex items-center justify-center gap-2 mt-2">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+          Reabrir Turno y Editar
+        </button>
+      </div>
+    </div>
+  </div>
 </body>
 </html>
