@@ -131,11 +131,11 @@
         <!-- Botón para configurar Progresivo (Restaurado) -->
         <div class="flex justify-between items-center mt-2 pt-4 border-t border-slate-200">
           <div>
-            <label class="block text-xs font-bold uppercase text-blue-600 mb-0.5">Progresivo</label>
+            <label class="block text-xs font-bold uppercase text-blue-600 mb-0.5">Montos Iniciales Progresivo</label>
             <p id="txtProgresivoElegido" class="text-[10px] text-slate-400 font-medium">Ninguno configurado</p>
           </div>
           <button id="btnAbrirModalProgresivo" class="bg-blue-100 text-blue-700 font-bold py-2 px-4 rounded-xl text-xs active:scale-95 transition-all">
-            + Configurar
+            + Agregar
           </button>
         </div>
 
@@ -263,43 +263,61 @@
       
       <div class="space-y-5">
         
-        <!-- Top Juegos Dinámico -->
-        <div>
-          <label class="block text-xs font-bold uppercase text-slate-500 mb-2">Top Juegos (Toca en orden de más jugado)</label>
-          <div id="contenedorTopJuegos" class="flex flex-wrap gap-2">
-            <!-- JS inyectará los botones aquí -->
+        <!-- 1. AFORO TIPO VOLUMEN (Slider) -->
+        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+          <div class="flex justify-between items-end mb-3">
+            <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Aforo de la sala</label>
+            <span id="txtAforoPorcentaje" class="text-2xl font-black text-blue-600 leading-none">0%</span>
           </div>
-          <p class="text-[10px] text-blue-600 mt-2 font-medium" id="ordenSeleccionado">Orden actual: Ninguno</p>
-          <input type="hidden" id="inputTopJuegosOculto">
+          <input type="range" id="aforoTurno" min="0" max="100" value="0" step="5" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
+          <div class="flex justify-between text-[9px] font-bold text-slate-400 mt-2 px-1">
+            <span>0%</span><span>50%</span><span>100%</span>
+          </div>
         </div>
 
-        <!-- Cierre de Progresivos Dinámicos (Botones) -->
-        <div class="bg-indigo-50 p-4 rounded-xl border border-indigo-100">
-          <label class="block text-xs font-bold uppercase text-indigo-700 mb-2">Cierre de Progresivos</label>
-          <p class="text-[10px] text-slate-500 mb-3">Toca cada progresivo para registrar sus montos finales.</p>
+        <!-- 2. TOP JUEGOS BUSCADOR DINÁMICO -->
+        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+          <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Top Juegos (Orden de más jugado)</label>
           
-          <div id="contenedorBotonesProgresivosCierre" class="flex flex-wrap gap-2">
+          <!-- Aquí se dibujará la lista de los seleccionados (1ro, 2do, etc) -->
+          <div id="contenedorRankingSeleccionado" class="flex flex-col gap-2 mb-3"></div>
+          
+          <!-- Buscador -->
+          <div class="relative">
+            <input type="text" id="buscadorTopJuegos" autocomplete="off" placeholder="Buscar juego para agregar al top..." class="w-full bg-slate-50 border border-slate-200 rounded-lg p-3 text-sm focus:border-blue-500 outline-none transition-colors">
+            <!-- Resultados del buscador -->
+            <ul id="listaResultadosJuegos" class="absolute z-10 w-full bg-white border border-slate-200 rounded-lg shadow-lg max-h-40 overflow-y-auto hidden mt-1"></ul>
+          </div>
+        </div>
+
+        <!-- 3. CIERRE DE PROGRESIVOS (Botones limpios) -->
+        <div class="bg-indigo-50 p-4 rounded-xl border border-indigo-100 hidden" id="bloqueProgresivosCierre">
+          <label class="block text-[10px] font-bold uppercase text-indigo-700 mb-3">Cierre de Progresivos</label>
+          <div id="contenedorBotonesProgresivosCierre" class="grid grid-cols-2 gap-2">
             <!-- JS inyectará botones dinámicamente aquí -->
           </div>
-          <p id="msgSinProgresivos" class="text-[10px] text-red-500 hidden font-bold">No se configuraron progresivos en este turno.</p>
         </div>
 
-        <!-- Comentarios -->
-        <div>
-          <textarea id="comProduc" rows="2" class="w-full border border-slate-300 rounded-xl p-3 text-sm outline-none focus:border-blue-500 bg-slate-50" placeholder="Comentarios del Producto..."></textarea>
-        </div>
-        <div>
-          <textarea id="comSala" rows="2" class="w-full border border-slate-300 rounded-xl p-3 text-sm outline-none focus:border-blue-500 bg-slate-50" placeholder="Comentarios de la Sala..."></textarea>
+        <!-- 4. LOS TRES COMENTARIOS -->
+        <div class="space-y-3">
+          <div>
+            <textarea id="comProduc" rows="2" class="w-full border border-slate-300 rounded-xl p-3 text-sm outline-none focus:border-blue-500 bg-slate-50" placeholder="Comentarios del Producto..."></textarea>
+          </div>
+          <div>
+            <textarea id="comSala" rows="2" class="w-full border border-slate-300 rounded-xl p-3 text-sm outline-none focus:border-blue-500 bg-slate-50" placeholder="Comentarios de la Sala..."></textarea>
+          </div>
+          <div>
+            <textarea id="comCompetencia" rows="3" class="w-full border border-orange-300 rounded-xl p-3 text-sm outline-none focus:border-orange-500 bg-orange-50 placeholder-orange-400" placeholder="🕵️ ¿Qué está haciendo la competencia?..."></textarea>
+          </div>
         </div>
         
+        <!-- BOTONES DE ACCIÓN -->
         <div class="flex space-x-3 pt-2">
           <button id="btnCancelarCierre" class="w-1/3 bg-slate-200 text-slate-700 font-bold py-4 rounded-xl active:scale-95 transition-all">Volver</button>
           <button id="btnConfirmarCierre" class="w-2/3 bg-red-600 text-white font-bold py-4 rounded-xl shadow-lg active:scale-95 transition-all">Cerrar Turno</button>
         </div>
-      </div>
-    </div>
-  </div>
 
+      </div>
   <!-- MODAL: LLENAR MONTOS FINALES DEL PROGRESIVO -->
   <div id="modalCierreProgresivo" class="fixed inset-0 bg-slate-900/90 z-[80] flex flex-col justify-end hidden opacity-0 transition-opacity duration-300">
     <div class="bg-white rounded-t-3xl w-full p-6 pb-10 shadow-2xl transform translate-y-full transition-transform duration-300" id="contentCierreProgresivo">

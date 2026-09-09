@@ -29,27 +29,70 @@
       <button onclick="cambiarTab('gabinetes')" id="tab_gabinetes" class="px-4 py-3 text-sm font-bold text-slate-400 hover:text-slate-600 border-b-2 border-transparent">Gabinetes</button>
       <button onclick="cambiarTab('progresivos')" id="tab_progresivos" class="px-4 py-3 text-sm font-bold text-slate-400 hover:text-slate-600 border-b-2 border-transparent">Progresivos</button>
       <button onclick="cambiarTab('denominaciones')" id="tab_denominaciones" class="px-4 py-3 text-sm font-bold text-slate-400 hover:text-slate-600 border-b-2 border-transparent">Denominaciones</button>
+      <button onclick="cambiarTab('usuarios')" id="tab_usuarios" class="px-4 py-3 text-sm font-bold text-slate-400 hover:text-slate-600 border-b-2 border-transparent">Usuarios</button>
+      <button onclick="cambiarTab('exportar')" id="tab_exportar" class="px-4 py-3 text-sm font-bold text-emerald-600 hover:text-emerald-700 border-b-2 border-transparent flex items-center gap-1">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+        Exportar
+      </button>
     </div>
   </div>
 
   <main class="flex-1 p-4 flex flex-col max-w-2xl mx-auto w-full">
     
-    <div class="flex justify-between items-center mb-4">
-      <h3 class="font-bold text-slate-700" id="tituloSeccion">Gestionar Plataformas</h3>
-      <button onclick="abrirModalCrud()" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold py-2 px-4 rounded-lg shadow-sm flex gap-1 items-center">
-        <span>+</span> Nuevo
-      </button>
+    <!-- ========================================== -->
+    <!-- PANEL 1: CRUD ORIGINAL (Lista de datos)    -->
+    <!-- ========================================== -->
+    <div id="panel_crud" class="flex-1 flex flex-col w-full">
+        <div class="flex justify-between items-center mb-4">
+          <h3 class="font-bold text-slate-700" id="tituloSeccion">Gestionar Plataformas</h3>
+          <button onclick="abrirModalCrud()" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold py-2 px-4 rounded-lg shadow-sm flex gap-1 items-center">
+            <span>+</span> Nuevo
+          </button>
+        </div>
+
+        <!-- Tabla de Datos -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex-1">
+          <ul id="listaDatos" class="divide-y divide-slate-100">
+            <!-- JS inyecta los datos aquí -->
+            <li class="p-4 text-center text-slate-400 text-sm">Cargando...</li>
+          </ul>
+        </div>
     </div>
 
-    <!-- Tabla de Datos -->
-    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex-1">
-      <ul id="listaDatos" class="divide-y divide-slate-100">
-        <!-- JS inyecta los datos aquí -->
-        <li class="p-4 text-center text-slate-400 text-sm">Cargando...</li>
-      </ul>
+    <!-- ========================================== -->
+    <!-- PANEL 2: EXPORTAR EXCEL (Oculto al inicio) -->
+    <!-- ========================================== -->
+    <div id="panel_exportar" class="hidden w-full">
+      <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+        <h2 class="text-lg font-black text-slate-800 mb-2">Exportar Reportes Operativos</h2>
+        <p class="text-sm text-slate-500 mb-6">Selecciona el rango de fechas y la anfitriona para generar un archivo Excel con múltiples hojas para análisis profundo.</p>
+        
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <div>
+            <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">Fecha Desde</label>
+            <input type="date" id="filtroFechaIni" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm outline-none focus:border-emerald-500 font-medium">
+          </div>
+          <div>
+            <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">Fecha Hasta</label>
+            <input type="date" id="filtroFechaFin" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm outline-none focus:border-emerald-500 font-medium">
+          </div>
+          <div>
+            <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">Usuario</label>
+            <select id="filtroUsuario" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm outline-none focus:border-emerald-500 font-medium">
+              <option value="TODOS">Todas las anfitrionas</option>
+              <!-- JS inyectará los usuarios aquí -->
+            </select>
+          </div>
+        </div>
+
+        <button id="btnGenerarExcelGlobal" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-4 rounded-xl shadow-lg transition-all active:scale-95 text-base flex items-center justify-center gap-2">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+          Descargar Data Global (Excel)
+        </button>
+      </div>
     </div>
+
   </main>
-
   <!-- MODAL CRUD (Crear/Editar) -->
   <div id="modalCrud" class="fixed inset-0 bg-slate-900/80 z-[60] flex items-center justify-center hidden opacity-0 transition-opacity duration-300 px-4">
     <div class="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl transform scale-95 transition-transform duration-300" id="contentCrud">
@@ -69,7 +112,7 @@
       </button>
     </div>
   </div>
-
+  <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
   <script src="js/supabase.js"></script>
   <script src="js/admin.js"></script>
 </body>
