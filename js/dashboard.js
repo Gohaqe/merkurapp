@@ -3,9 +3,17 @@ if (localStorage.getItem('usuario_cargo') === 'Admin' || localStorage.getItem('u
     document.getElementById('btnIrAdmin').classList.remove('hidden');
 }
 // 1. Verificamos si la sesión de usuario existe
+// Verificar sesión y permisos Admin
 const userId = localStorage.getItem('usuario_id');
-if (!userId) {
-    window.location.replace('index.html');
+if (!userId) window.location.replace('index.html');
+
+const cargoActual = localStorage.getItem('usuario_cargo');
+if (cargoActual === 'Admin' || cargoActual === 'Administrador') {
+    document.getElementById('btnIrAdmin').classList.remove('hidden');
+    // Si la pantalla ya cargó el modal y existe el botón, lo mostramos
+    if (document.getElementById('btnExportarExcel')) {
+        document.getElementById('btnExportarExcel').classList.remove('hidden');
+    }
 }
 
 // 2. Mostramos el nombre de la anfitriona
@@ -41,48 +49,51 @@ btnMainTurno.addEventListener('click', () => {
 });
 
 // ==========================================
-// 6. CARGAR EL HISTORIAL DE REPORTES
+// 5. CARGAR EL HISTORIAL DE REPORTES
 // ==========================================
-document.addEventListener('DOMContentLoaded', async () => {
-    await cargarHistorial();
-});
+document.addEventListener('DOMContentLoaded', async () => { await cargarHistorial(); });
 
 async function cargarHistorial() {
-    const userId = localStorage.getItem('usuario_id');
     const contenedorList = document.getElementById('reportesList');
-
+    const userId = localStorage.getItem('usuario_id');
+    const cargoActual = localStorage.getItem('usuario_cargo');
+    
     if (!userId) return;
 
-    const { data, error } = await supabaseClient
+    // Cambiamos el título si es Admin
+    const tituloSeccion = document.querySelector('h3.uppercase');
+    if (cargoActual === 'Admin' || cargoActual === 'Administrador') {
+        if(tituloSeccion) tituloSeccion.textContent = 'Últimos Reportes (Visión Global)';
+    }
+
+    // 1. Preparamos la consulta a Supabase (Añadimos la tabla usuarios para saber quién fue)
+    let query = supabaseClient
         .from('reportes')
         .select(`
-            id,
-            fecha,
-            turno_ini,
-            turno_fin,
+            id, fecha, turno_ini, turno_fin,
             salas ( nombre ),
-            reporte_asignaciones (
-                cantidad,
-                juegos ( juego ),
-                gabinetes ( modelo )
-            )
+            usuarios ( nombres, apellidos ),
+            reporte_asignaciones ( cantidad, juegos ( juego ), gabinetes ( modelo ) )
         `)
-        .eq('usuario_id', userId)
         .order('created_at', { ascending: false })
-        .limit(10);
+        .limit(15); // Traemos un poco más de registros para el Admin
+
+    // 2. Si NO es administrador, lo "cegamos" para que solo vea sus propios reportes
+    if (cargoActual !== 'Admin' && cargoActual !== 'Administrador') {
+        query = query.eq('usuario_id', userId);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
         contenedorList.innerHTML = `<div class="text-red-500 text-sm">Error al cargar historial</div>`;
-        console.error(error);
         return;
     }
 
     if (data && data.length > 0) {
         contenedorList.innerHTML = '';
-
         data.forEach(reporte => {
             const div = document.createElement('div');
-            // NUEVO: Agregamos cursor-pointer y el onclick para abrir el modal
             div.className = "bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col space-y-3 cursor-pointer hover:shadow-md transition-shadow active:scale-[0.98]";
             div.onclick = () => abrirDetalleTurno(reporte.id);
             
@@ -90,27 +101,30 @@ async function cargarHistorial() {
             const horaIni = reporte.turno_ini ? reporte.turno_ini.substring(0, 5) : '--:--';
             const horaFin = reporte.turno_fin ? reporte.turno_fin.substring(0, 5) : '--:--';
 
+            // Si es admin, le agregamos una etiquetita bonita para que sepa de quién es el reporte
+            let anfitrionaBadge = '';
+            if (cargoActual === 'Admin' || cargoActual === 'Administrador') {
+                const nombreAnf = reporte.usuarios ? `${reporte.usuarios.nombres} ${reporte.usuarios.apellidos}` : 'Usuario Borrado';
+                anfitrionaBadge = `<p class="text-[10px] text-indigo-600 font-black uppercase mt-1 flex items-center gap-1"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg> ${nombreAnf}</p>`;
+            }
+
             let htmlContenido = `
                 <div class="flex justify-between items-start border-b border-slate-100 pb-2">
                     <div>
                         <h4 class="font-bold text-slate-800 text-lg">${reporte.salas?.nombre || 'Sala sin nombre'}</h4>
                         <p class="text-xs text-slate-500 font-medium">${fechaLimpia} • ${horaIni} a ${horaFin}</p>
+                        ${anfitrionaBadge}
                     </div>
-                    <span class="bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-[10px] font-bold">
-                        Ver Detalle
-                    </span>
+                    <span class="bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-[10px] font-bold h-fit">Ver Detalle</span>
                 </div>
             `;
 
             const asignaciones = reporte.reporte_asignaciones;
             if (asignaciones && asignaciones.length > 0) {
-                htmlContenido += `<div class="space-y-2 mt-2">
-                                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Máquinas Monitoreadas:</p>`;
-                
+                htmlContenido += `<div class="space-y-2 mt-2"><p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Máquinas Monitoreadas:</p>`;
                 asignaciones.forEach(asig => {
                     const nombreJuego = asig.juegos ? asig.juegos.juego : 'Juego borrado';
                     const modeloGabinete = asig.gabinetes ? asig.gabinetes.modelo : 'Gabinete borrado';
-                    
                     htmlContenido += `
                         <div class="flex items-center text-sm">
                             <span class="font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded mr-2">${asig.cantidad}x</span>
@@ -118,7 +132,6 @@ async function cargarHistorial() {
                         </div>
                     `;
                 });
-                
                 htmlContenido += `</div>`;
             } else {
                 htmlContenido += `<p class="text-xs text-slate-400 italic mt-2">Sin máquinas asignadas</p>`;
@@ -128,7 +141,7 @@ async function cargarHistorial() {
             contenedorList.appendChild(div);
         });
     } else {
-        contenedorList.innerHTML = `<div class="text-center text-slate-400 text-sm py-4">No tienes reportes recientes.</div>`;
+        contenedorList.innerHTML = `<div class="text-center text-slate-400 text-sm py-4">No hay reportes para mostrar.</div>`;
     }
 }
 
@@ -149,11 +162,12 @@ window.abrirDetalleTurno = async function(reporteId) {
     }, 10);
 
     try {
-        // 1. MEGA CONSULTA A SUPABASE (Ahora trae el ID y Nombre del Progresivo por máquina)
+        // 1. MEGA CONSULTA ACTUALIZADA (Traemos Aforo, Competencia y Progresivos Iniciales)
         const { data: reporte, error } = await supabaseClient
             .from('reportes')
             .select(`
-                id, turno_ini, turno_fin, com_produc, com_sala, fecha, progresivos_finales, 
+                id, turno_ini, turno_fin, com_produc, com_sala, com_competencia, fecha, 
+                aforo, top_juegos, progresivos_iniciales, progresivos_finales, 
                 salas(nombre),
                 reporte_asignaciones(
                     id, cantidad, ap_minima, ap_maxima, denominaciones, progresivo_id,
@@ -174,6 +188,7 @@ window.abrirDetalleTurno = async function(reporteId) {
         }
 
         if (reporte) {
+            window.reporteActualData = reporte;
             // Cabecera
             document.getElementById('detSalaNombre').textContent = reporte.salas?.nombre || 'Sala sin nombre';
             const iniF = reporte.turno_ini ? reporte.turno_ini.substring(0, 5) : '--:--';
@@ -181,12 +196,34 @@ window.abrirDetalleTurno = async function(reporteId) {
             const fechaLimpia = reporte.fecha ? new Date(reporte.fecha).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' }) : '--/--/----';
             document.getElementById('detFechaHora').textContent = `${fechaLimpia} • ${iniF} a ${finF}`;
             
+            // Aforo
+            document.getElementById('detAforo').textContent = reporte.aforo !== null ? `${reporte.aforo}%` : 'N/A';
+
+            // Top Juegos
+            const topJuegosArray = reporte.top_juegos && reporte.top_juegos !== 'Ninguno' ? reporte.top_juegos.split(', ') : [];
+            const contenedorTopList = document.getElementById('detTopJuegosList');
+            if (topJuegosArray.length > 0) {
+                document.getElementById('detTop1').textContent = topJuegosArray[0];
+                contenedorTopList.innerHTML = topJuegosArray.map((j, i) => `<span class="bg-slate-100 text-slate-600 text-[10px] font-bold px-2 py-1 rounded-md border border-slate-200">${i+1}º ${j}</span>`).join('');
+                document.getElementById('cajaTopJuegos').classList.remove('hidden');
+            } else {
+                document.getElementById('detTop1').textContent = 'No registrado';
+                document.getElementById('cajaTopJuegos').classList.add('hidden');
+            }
+
             // Comentarios
-            document.getElementById('detComProducto').textContent = reporte.com_produc || 'Sin comentarios registrados.';
-            document.getElementById('detComSala').textContent = reporte.com_sala || 'Sin comentarios registrados.';
+            document.getElementById('detComProducto').textContent = reporte.com_produc || 'Sin comentarios.';
+            document.getElementById('detComSala').textContent = reporte.com_sala || 'Sin comentarios.';
+            const cajaCompetencia = document.getElementById('cajaCompetencia');
+            if (reporte.com_competencia) {
+                document.getElementById('detComCompetencia').textContent = reporte.com_competencia;
+                cajaCompetencia.classList.remove('hidden');
+            } else {
+                cajaCompetencia.classList.add('hidden');
+            }
 
             // ==========================================
-            // DIBUJAR DETALLE OPERATIVO DE MÁQUINAS (CON PROGRESIVOS INTEGARDOS)
+            // DIBUJAR DETALLE OPERATIVO DE MÁQUINAS
             // ==========================================
             const contenedorMaquinas = document.getElementById('detMaquinasContenedor');
             let htmlMaquinas = '';
@@ -199,7 +236,7 @@ window.abrirDetalleTurno = async function(reporteId) {
                     const gabinete = asig.gabinetes?.modelo || 'Desconocido';
                     const denom = asig.denominaciones || 'N/A';
 
-                    // 1. Renderizar Horas
+                    // 1. Horas
                     let htmlHoras = '';
                     if (asig.ocupaciones && Array.isArray(asig.ocupaciones) && asig.ocupaciones.length > 0) {
                         const ocupacionesOrdenadas = [...asig.ocupaciones].sort((a, b) => (a.bloque_horario || '').localeCompare(b.bloque_horario || ''));
@@ -211,11 +248,9 @@ window.abrirDetalleTurno = async function(reporteId) {
                                           </div>`;
                         });
                         htmlHoras += `</div>`;
-                    } else {
-                        htmlHoras = `<p class="text-[10px] text-slate-400 italic mt-2 ml-1">No se registraron horas.</p>`;
                     }
 
-                    // 2. Renderizar Fallas
+                    // 2. Fallas
                     let htmlFallas = '';
                     if (asig.incidencias && Array.isArray(asig.incidencias) && asig.incidencias.length > 0) {
                         htmlFallas += `<div class="mt-3 space-y-1">`;
@@ -228,29 +263,50 @@ window.abrirDetalleTurno = async function(reporteId) {
                         htmlFallas += `</div>`;
                     }
 
-                    // 3. Renderizar Progresivo DENTRO de la máquina
+                    // 3. Progresivos: Comparativa Inicial vs Final (¡MAGIA PURA!)
                     let htmlProgresivo = '';
-                    // Si esta máquina tiene un progresivo asignado Y hay datos guardados de ese progresivo
-                    if (asig.progresivo_id && reporte.progresivos_finales && reporte.progresivos_finales[asig.progresivo_id]) {
-                        const nombreProg = asig.progresivos?.nombre || 'Progresivo Asociado';
-                        const pozos = reporte.progresivos_finales[asig.progresivo_id];
-
-                        htmlProgresivo += `<div class="mt-3 pt-3 border-t border-slate-100">
-                                            <h6 class="text-[10px] font-black text-indigo-600 uppercase mb-1.5 tracking-wider">${nombreProg}</h6>
-                                            <div class="flex flex-wrap gap-1.5">`;
+                    if (asig.progresivo_id) {
+                        const nombreProg = asig.progresivos?.nombre || 'Progresivo';
                         
-                        for(const [pozo, valor] of Object.entries(pozos)) {
-                            htmlProgresivo += `<span class="bg-indigo-50 text-indigo-700 text-[9px] font-bold px-2 py-1 rounded-md border border-indigo-100 shadow-sm">
-                                                  <span class="opacity-70">${pozo}:</span> S/ ${valor}
-                                               </span>`;
+                        // Extraemos iniciales y finales con cuidado
+                        let iniciales = {};
+                        if (reporte.progresivos_iniciales && Array.isArray(reporte.progresivos_iniciales)) {
+                            const progIni = reporte.progresivos_iniciales.find(p => p.id == asig.progresivo_id);
+                            if (progIni) iniciales = progIni.valores || {};
                         }
-                        htmlProgresivo += `</div></div>`;
+                        const finales = reporte.progresivos_finales ? (reporte.progresivos_finales[asig.progresivo_id] || {}) : {};
+                        
+                        // Obtenemos todos los pozos uniendo los que tengan valor inicial o final
+                        const keys = new Set([...Object.keys(iniciales), ...Object.keys(finales)]);
+                        
+                        if (keys.size > 0) {
+                            htmlProgresivo += `<div class="mt-3 pt-3 border-t border-slate-100">
+                                <h6 class="text-[10px] font-black text-indigo-600 uppercase mb-2 tracking-wider">${nombreProg}</h6>
+                                <div class="grid grid-cols-1 gap-1.5">`;
+                            
+                            keys.forEach(pozo => {
+                                const valIni = iniciales[pozo] ? iniciales[pozo].toLocaleString() : '--';
+                                const valFin = finales[pozo] ? finales[pozo].toLocaleString() : '--';
+                                
+                                htmlProgresivo += `
+                                    <div class="bg-indigo-50/50 rounded-lg p-2 border border-indigo-100 flex justify-between items-center text-[11px]">
+                                        <span class="font-bold text-indigo-800 uppercase">${pozo}</span>
+                                        <div class="flex gap-2 items-center bg-white px-2 py-0.5 rounded shadow-sm border border-indigo-50">
+                                            <span class="text-slate-400 font-medium">S/ ${valIni}</span>
+                                            <span class="text-indigo-400 text-[9px]">➔</span>
+                                            <span class="font-black text-indigo-600">S/ ${valFin}</span>
+                                        </div>
+                                    </div>
+                                `;
+                            });
+                            htmlProgresivo += `</div></div>`;
+                        }
                     }
 
                     // Ensamblar la tarjeta de la máquina
                     htmlMaquinas += `
                         <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
-                            <div class="flex justify-between items-start border-b border-slate-100 pb-2">
+                            <div class="flex justify-between items-start border-b border-slate-100 pb-2 mb-2">
                                 <div>
                                     <h5 class="font-bold text-slate-800 text-sm leading-tight">${juego}</h5>
                                     <p class="text-[9px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">${gabinete} • ${asig.cantidad} unidades</p>
@@ -289,3 +345,70 @@ window.cerrarModalDetalle = function() {
     contentDetalle.classList.add('translate-y-full');
     setTimeout(() => modalDetalle.classList.add('hidden'), 300);
 };
+
+// ==========================================
+// 8. COMPARTIR A WHATSAPP Y EXPORTAR A EXCEL
+// ==========================================
+
+document.getElementById('btnCompartirWA').addEventListener('click', () => {
+    const r = window.reporteActualData;
+    if (!r) return;
+
+    const fechaLimpia = new Date(r.fecha).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
+    const iniF = r.turno_ini ? r.turno_ini.substring(0, 5) : '--:--';
+    const finF = r.turno_fin ? r.turno_fin.substring(0, 5) : '--:--';
+    
+    let textoWA = `🎰 *REPORTE DE TURNO* 🎰\n`;
+    textoWA += `📍 *Sala:* ${r.salas?.nombre || 'N/A'}\n`;
+    textoWA += `📅 *Fecha:* ${fechaLimpia} | 🕒 ${iniF} a ${finF}\n`;
+    textoWA += `👥 *Aforo:* ${r.aforo !== null ? r.aforo + '%' : 'N/A'}\n`;
+    
+    const topJuegos = r.top_juegos && r.top_juegos !== 'Ninguno' ? r.top_juegos.split(', ') : [];
+    if (topJuegos.length > 0) textoWA += `🥇 *Top 1:* ${topJuegos[0]}\n`;
+    
+    textoWA += `\n*🕹️ DETALLE OPERATIVO:*\n`;
+    
+    if (r.reporte_asignaciones && r.reporte_asignaciones.length > 0) {
+        r.reporte_asignaciones.forEach(a => {
+            textoWA += `\n🔸 *${a.juegos?.juego}* (${a.gabinetes?.modelo}) - ${a.cantidad} un.\n`;
+            
+            // Horas
+            if (a.ocupaciones && a.ocupaciones.length > 0) {
+                const horas = [...a.ocupaciones].sort((x, y) => (x.bloque_horario || '').localeCompare(y.bloque_horario || ''));
+                textoWA += `   🕒 ` + horas.map(o => `${o.bloque_horario.split(' - ')[0]} (${o.ocupacion}j)`).join(', ') + `\n`;
+            }
+            // Fallas
+            if (a.incidencias && a.incidencias.length > 0) {
+                textoWA += `   🚨 Fallas: ` + a.incidencias.map(i => `S/N: ${i.serie} - ${i.error}`).join(' | ') + `\n`;
+            }
+            // Progresivos
+            if (a.progresivo_id) {
+                const nombreProg = a.progresivos?.nombre || 'Prog';
+                let iniciales = r.progresivos_iniciales ? (r.progresivos_iniciales.find(p => p.id == a.progresivo_id)?.valores || {}) : {};
+                let finales = r.progresivos_finales ? (r.progresivos_finales[a.progresivo_id] || {}) : {};
+                const keys = new Set([...Object.keys(iniciales), ...Object.keys(finales)]);
+                
+                if(keys.size > 0) {
+                    textoWA += `   💰 *${nombreProg}:*\n`;
+                    keys.forEach(pozo => {
+                        const valIni = iniciales[pozo] ? iniciales[pozo].toLocaleString() : '--';
+                        const valFin = finales[pozo] ? finales[pozo].toLocaleString() : '--';
+                        textoWA += `      - ${pozo}: S/ ${valIni} ➔ S/ ${valFin}\n`;
+                    });
+                }
+            }
+        });
+    } else {
+        textoWA += `   Sin máquinas registradas.\n`;
+    }
+
+    textoWA += `\n*📝 COMENTARIOS:*\n`;
+    textoWA += `🔹 *Producto:* ${r.com_produc || 'N/A'}\n`;
+    textoWA += `🔹 *Sala:* ${r.com_sala || 'N/A'}\n`;
+    if (r.com_competencia) textoWA += `🕵️ *Competencia:* ${r.com_competencia}\n`;
+
+    // Redirigir a WhatsApp
+    const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(textoWA)}`;
+    window.open(waUrl, '_blank');
+});
+

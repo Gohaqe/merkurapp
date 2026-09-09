@@ -3,6 +3,7 @@
 // ==========================================
 let modoEdicionAsignacionId = null;
 let modoEdicionIndex = null;
+window.progresivoSeleccionadoId = null; // Variable añadida para el progresivo
 
 // ==========================================
 // ASIGNAR MÁQUINAS Y GENERAR BOTONES
@@ -17,7 +18,7 @@ document.getElementById('btnAsignar').addEventListener('click', async () => {
     const denom = denominacionesSeleccionadas.length > 0 ? denominacionesSeleccionadas.join(' / ') : null;
 
     if (!juegoId || !gabineteId || !cantidad) {
-        alert('Selecciona el juego, gabinete y la cantidad.');
+        alert('Selecciona la plataforma, gabinete y la cantidad.');
         return;
     }
 
@@ -118,7 +119,6 @@ window.renderizarBottonAsignado = function() {
         const modeloGabinete = asig.gabinetes?.modelo || 'Gabinete Desconocido';
         const cantidad = asig.cantidad;
 
-        // SI LA MÁQUINA ESTÁ "ELIMINADA" (Modo Oculto)
         if (asig.oculto) {
             zonaBotones.innerHTML += `
                 <div class="bg-slate-100 border border-slate-200 rounded-xl p-3 flex flex-col justify-center items-center text-center opacity-80">
@@ -134,11 +134,9 @@ window.renderizarBottonAsignado = function() {
                     </div>
                 </div>
             `;
-            return; // Saltamos a la siguiente tarjeta
+            return;
         }
 
-        // TARJETA NORMAL ACTIVA
-        // Corrección clave: Pasamos solo el index en lugar del texto con comillas para evitar que se rompa
         zonaBotones.innerHTML += `
             <div class="bg-white border border-slate-200 rounded-xl shadow-sm flex flex-col overflow-hidden">
                 <div class="p-3">
@@ -173,13 +171,11 @@ window.renderizarBottonAsignado = function() {
 // PAPELERA DE RECICLAJE (SOFT Y HARD DELETE)
 // ==========================================
 window.eliminarAsignacion = function(index) {
-    // Solo la ocultamos visualmente
     asignacionesEnMemoria[index].oculto = true;
     renderizarBottonAsignado();
 };
 
 window.restaurarAsignacion = function(index) {
-    // La devolvemos a la vida
     asignacionesEnMemoria[index].oculto = false;
     renderizarBottonAsignado();
 };
@@ -498,3 +494,138 @@ document.getElementById('btnConfirmarDenom').addEventListener('click', () => {
         btn.classList.remove('text-blue-700', 'font-bold', 'bg-blue-50', 'border-blue-300');
     }
 });
+
+// ==========================================
+// VENTANA FLOTANTE: PROGRESIVOS (CONFIGURACIÓN ANTES DE ASIGNAR)
+// ==========================================
+
+// 1. Abrir Modal de Progresivo
+const btnAbrirProg = document.getElementById('btnAbrirModalProgresivo');
+if (btnAbrirProg) {
+    btnAbrirProg.addEventListener('click', () => {
+        const modal = document.getElementById('modalProgresivo');
+        const content = document.getElementById('modalProgresivoContent');
+        if (modal && content) {
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                content.classList.remove('translate-y-full');
+            }, 10);
+        }
+    });
+}
+
+// 2. Cerrar Modal (Botón X)
+const btnCerrarProg = document.getElementById('btnCerrarProgresivo');
+if (btnCerrarProg) {
+    btnCerrarProg.addEventListener('click', () => {
+        const modal = document.getElementById('modalProgresivo');
+        const content = document.getElementById('modalProgresivoContent');
+        if (modal && content) {
+            modal.classList.add('opacity-0');
+            content.classList.add('translate-y-full');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        }
+    });
+}
+
+// 3. ¡LA MAGIA DE LOS POZOS! (Escuchar cuando elige un progresivo)
+const selProgresivo = document.getElementById('modalSelProgresivo');
+if (selProgresivo) {
+    selProgresivo.addEventListener('change', (e) => {
+        const idProg = e.target.value;
+        const contenedorPozos = document.getElementById('modalContenedorPozos');
+        
+        // MAGIA VISUAL: Le aplicamos el diseño de tu foto (Grilla de 2 columnas)
+        contenedorPozos.className = 'grid grid-cols-2 gap-3 mt-4'; 
+        contenedorPozos.innerHTML = ''; // Limpiamos los cuadros anteriores
+
+        if (!idProg) return;
+
+        // Buscamos el progresivo en la memoria global
+        const prog = todosLosProgresivos.find(p => p.id == idProg);
+        
+        if (prog && prog.nombres_pozos) {
+            // Asegurarnos de que los pozos sean un arreglo válido
+            let pozosArray = Array.isArray(prog.nombres_pozos) ? prog.nombres_pozos : 
+                             (typeof prog.nombres_pozos === 'string' ? prog.nombres_pozos.split(',').map(s => s.trim()) : []);
+            
+            if (pozosArray.length > 0) {
+                pozosArray.forEach(pozo => {
+                    // Intentamos recuperar el valor si ya lo había llenado antes
+                    let valorPrevio = '';
+                    const guardado = window.progresivosTurno.find(pt => pt.id === idProg);
+                    if (guardado && guardado.valores && guardado.valores[pozo]) {
+                        valorPrevio = guardado.valores[pozo];
+                    }
+
+                    // Inyectamos el formato EXACTO de tu foto
+                    contenedorPozos.innerHTML += `
+                        <div>
+                            <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">${pozo}</label>
+                            <input type="number" id="pozo_ini_${pozo}" value="${valorPrevio}" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-base font-bold text-slate-700 focus:border-indigo-500 outline-none transition-colors">
+                        </div>
+                    `;
+                });
+            } else {
+                // Si no hay pozos, quitamos la grilla para que el texto se vea normal
+                contenedorPozos.className = 'mt-4';
+                contenedorPozos.innerHTML = '<p class="text-sm text-slate-400">Este progresivo no tiene pozos configurados.</p>';
+            }
+        }
+    });
+}
+
+// 4. Guardar Selección de Progresivo y los montos de sus pozos
+const btnGuardarProg = document.getElementById('btnGuardarProgresivo');
+if (btnGuardarProg) {
+    btnGuardarProg.addEventListener('click', () => {
+        const selector = document.getElementById('modalSelProgresivo');
+        const idElegido = selector.value;
+        const textoElegido = selector.options[selector.selectedIndex]?.text;
+        const txtUI = document.getElementById('txtProgresivoElegido');
+
+        if (idElegido) {
+            // Actualizamos la UI principal
+            window.progresivoSeleccionadoId = idElegido;
+            txtUI.textContent = textoElegido;
+            txtUI.classList.remove('text-slate-400');
+            txtUI.classList.add('text-blue-700', 'font-bold');
+
+            // GUARDAMOS LOS MONTOS EN LA MEMORIA DEL TURNO
+            const prog = todosLosProgresivos.find(p => p.id == idElegido);
+            if (prog) {
+                let pozosArray = Array.isArray(prog.nombres_pozos) ? prog.nombres_pozos : 
+                                 (typeof prog.nombres_pozos === 'string' ? prog.nombres_pozos.split(',').map(s => s.trim()) : []);
+                
+                let valores = {};
+                pozosArray.forEach(pozo => {
+                    const inputPozo = document.getElementById(`pozo_ini_${pozo}`);
+                    if (inputPozo && inputPozo.value !== '') {
+                        valores[pozo] = parseFloat(inputPozo.value);
+                    }
+                });
+
+                // Lo metemos al arreglo global progresivosTurno
+                // AQUÍ ESTÁN LOS CAMBIOS 2 y 3: Guardar usando window.progresivosTurno
+                const index = window.progresivosTurno.findIndex(pt => pt.id === idElegido);
+                if (index >= 0) {
+                    window.progresivosTurno[index].valores = valores;
+                } else {
+                    window.progresivosTurno.push({ id: idElegido, valores: valores });
+                }
+                localStorage.setItem('progresivos_turno', JSON.stringify(window.progresivosTurno));
+            }
+
+        } else {
+            // Si elige "Ninguno"
+            window.progresivoSeleccionadoId = null;
+            txtUI.textContent = "Ninguno configurado";
+            txtUI.classList.add('text-slate-400');
+            txtUI.classList.remove('text-blue-700', 'font-bold');
+        }
+
+        // Cerramos el modal simulando clic en la X
+        if (btnCerrarProg) btnCerrarProg.click();
+    });
+}

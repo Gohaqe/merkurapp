@@ -1,197 +1,281 @@
 // ==========================================
-// CONTROL DEL MODAL DE PROGRESIVOS
+// VARIABLES DE CIERRE
 // ==========================================
-window.progresivoSeleccionadoId = null;
+window.juegosRanking = window.juegosRanking || [];
+window.valoresCierreProgresivos = window.valoresCierreProgresivos || {};
+let idProgresivoEditando = null;
+let nombresPozosEditando = [];
+let catalogoJuegosGlobal = []; 
 
-document.getElementById('btnAbrirModalProgresivo').addEventListener('click', () => {
-    document.getElementById('modalProgresivo').classList.remove('hidden');
+// ==========================================
+// 1. INICIAR CIERRE DE TURNO
+// ==========================================
+document.getElementById('btnFinalizarTurno').addEventListener('click', async () => {
+    const modal = document.getElementById('modalCierre');
+    const content = document.getElementById('modalContentCierre'); 
+    modal.classList.remove('hidden');
     setTimeout(() => {
-        document.getElementById('modalProgresivo').classList.remove('opacity-0');
-        document.getElementById('modalProgresivoContent').classList.remove('translate-y-full');
+        modal.classList.remove('opacity-0');
+        content.classList.remove('translate-y-full');
     }, 10);
-});
 
-document.getElementById('btnCerrarProgresivo').addEventListener('click', () => {
-    document.getElementById('modalProgresivo').classList.add('opacity-0');
-    document.getElementById('modalProgresivoContent').classList.add('translate-y-full');
-    setTimeout(() => document.getElementById('modalProgresivo').classList.add('hidden'), 300);
-});
-
-document.getElementById('modalSelProgresivo').addEventListener('change', function() {
-    const contenedor = document.getElementById('modalContenedorPozos');
-    contenedor.innerHTML = ''; 
-    if(!this.value) return; 
-
-    const progresivoElegido = todosLosProgresivos.find(p => p.id === this.value);
-    if(progresivoElegido && progresivoElegido.nombres_pozos) {
-        progresivoElegido.nombres_pozos.forEach(nombrePozo => {
-            contenedor.innerHTML += `
-                <div class="flex justify-between items-center bg-blue-50 p-3 rounded-xl border border-blue-100">
-                    <label class="text-xs font-bold text-blue-800 uppercase w-1/3">${nombrePozo}</label>
-                    <div class="relative w-2/3">
-                        <span class="absolute left-3 top-2.5 text-slate-400 font-bold">S/</span>
-                        <input type="number" step="0.01" data-pozo="${nombrePozo}" placeholder="0.00" class="w-full bg-white border border-blue-200 rounded-lg py-2 pl-8 pr-3 text-right font-bold text-slate-700 outline-none focus:border-blue-500">
-                    </div>
-                </div>
-            `;
-        });
+    if (catalogoJuegosGlobal.length === 0) {
+        const { data: listaJuegos } = await supabaseClient.from('juegos').select('juego').eq('grupo', 'Juego');
+        if (listaJuegos) {
+            catalogoJuegosGlobal = listaJuegos.map(j => j.juego);
+        }
     }
-});
-
-document.getElementById('btnGuardarProgresivo').addEventListener('click', () => {
-    const select = document.getElementById('modalSelProgresivo');
-    const txtProgresivoElegido = document.getElementById('txtProgresivoElegido');
     
-    if (select.value) {
-        txtProgresivoElegido.textContent = select.options[select.selectedIndex].text;
-        txtProgresivoElegido.classList.replace('text-slate-400', 'text-blue-700');
-        progresivoSeleccionadoId = select.value;
-    } else {
-        txtProgresivoElegido.textContent = "Ninguno configurado";
-        txtProgresivoElegido.classList.replace('text-blue-700', 'text-slate-400');
-        progresivoSeleccionadoId = null;
-    }
-    document.getElementById('btnCerrarProgresivo').click();
+    // Pintamos lo que haya cargado estado.js en la memoria
+    renderizarRankingSeleccionado();
+    refrescarProgresivosCierre();
 });
 
-// ==========================================
-// CONTROL DE CIERRE DE TURNO
-// ==========================================
-let progresivoCierreActual = null; 
-let valoresCierreProgresivos = {}; 
-
-document.getElementById('btnFinalizarTurno').addEventListener('click', () => {
-    const progresivosUnicos = [];
-    asignacionesEnMemoria.forEach(a => {
-        if (a.progresivo_id && !progresivosUnicos.includes(a.progresivo_id)) progresivosUnicos.push(a.progresivo_id);
+function refrescarProgresivosCierre() {
+    const progsEnUso = asignacionesEnMemoria.filter(a => a.progresivo_id != null && !a.oculto);
+    const mapProgresivos = new Map();
+    
+    progsEnUso.forEach(a => {
+        const progDB = todosLosProgresivos.find(p => p.id == a.progresivo_id);
+        if (progDB && !mapProgresivos.has(a.progresivo_id)) {
+            let pozosFormateados = Array.isArray(progDB.nombres_pozos) ? progDB.nombres_pozos : (typeof progDB.nombres_pozos === 'string' ? progDB.nombres_pozos.split(',').map(s => s.trim()) : []);
+            mapProgresivos.set(a.progresivo_id, { id: progDB.id, nombre: progDB.nombre, pozos: pozosFormateados });
+        }
     });
 
-    const contenedorBotones = document.getElementById('contenedorBotonesProgresivosCierre');
-    contenedorBotones.innerHTML = '';
-    
-    if (progresivosUnicos.length === 0) {
-        document.getElementById('msgSinProgresivos').classList.remove('hidden');
-    } else {
-        document.getElementById('msgSinProgresivos').classList.add('hidden');
-        progresivosUnicos.forEach(progId => {
-            const progInfo = todosLosProgresivos.find(p => p.id == progId);
-            if (progInfo) {
-                const btn = document.createElement('button');
-                const yaLlenado = valoresCierreProgresivos[progId] ? 'bg-indigo-600 text-white' : 'bg-white border-2 border-indigo-200 text-indigo-700';
-                btn.className = `px-4 py-3 rounded-xl font-bold text-sm shadow-sm active:scale-95 transition-all ${yaLlenado}`;
-                btn.innerHTML = `${progInfo.nombre} ${valoresCierreProgresivos[progId] ? '✓' : ''}`;
-                btn.addEventListener('click', () => abrirModalCierreProgresivo(progInfo));
-                contenedorBotones.appendChild(btn);
-            }
-        });
-    }
+    const arrProgresivosUnicos = Array.from(mapProgresivos.values());
+    const contenedorProgresivos = document.getElementById('contenedorBotonesProgresivosCierre');
+    const bloqueProgresivos = document.getElementById('bloqueProgresivosCierre');
 
-    document.getElementById('modalCierre').classList.remove('hidden');
-    setTimeout(() => {
-        document.getElementById('modalCierre').classList.remove('opacity-0');
-        document.getElementById('modalContentCierre').classList.remove('translate-y-full');
-    }, 10);
+    if (arrProgresivosUnicos.length > 0) {
+        bloqueProgresivos.classList.remove('hidden');
+        contenedorProgresivos.innerHTML = '';
+        arrProgresivosUnicos.forEach(p => {
+            const btn = document.createElement('button');
+            if (window.valoresCierreProgresivos[p.id]) {
+                btn.className = "bg-emerald-100 border border-emerald-300 text-emerald-800 font-bold py-3 px-3 rounded-xl shadow-sm hover:bg-emerald-200 transition-colors w-full flex justify-between items-center text-xs";
+                btn.innerHTML = `<span class="truncate pr-1">${p.nombre}</span> <span class="bg-emerald-500 text-white rounded-full p-0.5"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg></span>`;
+            } else {
+                btn.className = "bg-white border border-indigo-200 text-indigo-700 font-bold py-3 px-3 rounded-xl shadow-sm hover:bg-indigo-50 transition-colors w-full text-center text-xs truncate";
+                btn.innerHTML = `<span>${p.nombre}</span>`;
+            }
+            btn.onclick = () => abrirModalLlenadoPozo(p.id, p.nombre, p.pozos);
+            contenedorProgresivos.appendChild(btn);
+        });
+    } else {
+        bloqueProgresivos.classList.add('hidden');
+        contenedorProgresivos.innerHTML = '';
+    }
+}
+
+// ==========================================
+// 2. BUSCADOR INTELIGENTE DE TOP JUEGOS
+// ==========================================
+const inputBuscarJuego = document.getElementById('buscadorTopJuegos');
+const listaResultadosJuegos = document.getElementById('listaResultadosJuegos');
+
+function normalizarTexto(texto) {
+    if(!texto) return "";
+    return texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+}
+
+if(inputBuscarJuego) {
+    inputBuscarJuego.addEventListener('input', function() {
+        const termino = normalizarTexto(this.value);
+        listaResultadosJuegos.innerHTML = ''; 
+
+        if (termino.length === 0) {
+            listaResultadosJuegos.classList.add('hidden');
+            return;
+        }
+
+        const resultados = catalogoJuegosGlobal.filter(juego => 
+            normalizarTexto(juego).includes(termino) && !window.juegosRanking.includes(juego)
+        );
+
+        if (resultados.length > 0) {
+            listaResultadosJuegos.classList.remove('hidden');
+            resultados.forEach(juego => {
+                const li = document.createElement('li');
+                li.className = "p-3 hover:bg-blue-50 cursor-pointer border-b border-slate-100 text-sm text-slate-700 font-medium";
+                li.textContent = juego;
+                li.addEventListener('click', () => {
+                    if(window.juegosRanking.length >= 5) {
+                        alert('Solo puedes agregar hasta 5 juegos al Top.');
+                    } else {
+                        window.juegosRanking.push(juego);
+                        renderizarRankingSeleccionado();
+                    }
+                    inputBuscarJuego.value = '';
+                    listaResultadosJuegos.classList.add('hidden'); 
+                });
+                listaResultadosJuegos.appendChild(li);
+            });
+        } else {
+            listaResultadosJuegos.classList.remove('hidden');
+            listaResultadosJuegos.innerHTML = '<li class="p-3 text-slate-400 text-sm italic">Sin resultados...</li>';
+        }
+    });
+}
+
+document.addEventListener('click', (e) => {
+    if (inputBuscarJuego && listaResultadosJuegos && !inputBuscarJuego.contains(e.target) && !listaResultadosJuegos.contains(e.target)) {
+        listaResultadosJuegos.classList.add('hidden');
+    }
 });
 
-function abrirModalCierreProgresivo(progInfo) {
-    progresivoCierreActual = progInfo.id;
-    document.getElementById('tituloCierreProgresivo').textContent = progInfo.nombre;
-    const contenedorInputs = document.getElementById('contenedorInputsCierreProgresivo');
+function renderizarRankingSeleccionado() {
+    const contenedor = document.getElementById('contenedorRankingSeleccionado');
+    if(!contenedor) return;
+    contenedor.innerHTML = '';
+    
+    if (window.juegosRanking.length === 0) {
+        contenedor.innerHTML = '<p class="text-xs text-slate-400 italic">No hay juegos en el ranking aún.</p>';
+        return;
+    }
+
+    window.juegosRanking.forEach((juego, index) => {
+        const medallas = ['bg-yellow-100 text-yellow-800 border-yellow-300', 'bg-slate-200 text-slate-700 border-slate-300', 'bg-orange-100 text-orange-800 border-orange-300', 'bg-blue-50 text-blue-700 border-blue-200', 'bg-slate-50 text-slate-600 border-slate-200'];
+        const claseColor = medallas[index] || medallas[4];
+
+        contenedor.innerHTML += `
+            <div class="flex justify-between items-center ${claseColor} border rounded-lg p-2 shadow-sm">
+                <span class="text-xs font-bold"><span class="opacity-60 mr-1">${index + 1}º</span> ${juego}</span>
+                <button onclick="eliminarDelRanking(${index})" class="bg-white rounded-full p-1 hover:bg-red-50 hover:text-red-600 text-slate-400 transition-colors">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+        `;
+    });
+}
+
+window.eliminarDelRanking = function(index) {
+    window.juegosRanking.splice(index, 1);
+    renderizarRankingSeleccionado();
+};
+
+// ==========================================
+// 3. ANIMACIÓN DEL AFORO TIPO VOLUMEN
+// ==========================================
+const sliderAforo = document.getElementById('aforoTurno');
+const txtAforo = document.getElementById('txtAforoPorcentaje');
+if(sliderAforo && txtAforo) {
+    sliderAforo.addEventListener('input', function() {
+        txtAforo.textContent = this.value + '%';
+        if(this.value < 40) txtAforo.className = 'text-2xl font-black text-emerald-500 leading-none';
+        else if(this.value < 80) txtAforo.className = 'text-2xl font-black text-blue-500 leading-none';
+        else txtAforo.className = 'text-2xl font-black text-red-500 leading-none';
+    });
+}
+
+// ==========================================
+// 4. MODAL DE LLENADO DE POZOS PROGRESIVOS
+// ==========================================
+window.abrirModalLlenadoPozo = function(id, nombre, pozos) {
+    idProgresivoEditando = id;
+    nombresPozosEditando = pozos;
+
+    document.getElementById('tituloCierreProgresivo').textContent = nombre; 
+    const contenedorInputs = document.getElementById('contenedorInputsCierreProgresivo'); 
     contenedorInputs.innerHTML = '';
 
-    if (progInfo.nombres_pozos) {
-        progInfo.nombres_pozos.forEach(nombrePozo => {
-            const valorPrevio = valoresCierreProgresivos[progInfo.id]?.[nombrePozo] || '';
+    if (!pozos || pozos.length === 0) {
+        contenedorInputs.innerHTML = '<p class="text-sm text-slate-400 col-span-2">No tiene pozos configurados.</p>';
+    } else {
+        pozos.forEach(pozo => {
+            const valorPrevio = (window.valoresCierreProgresivos[id] && window.valoresCierreProgresivos[id][pozo]) ? window.valoresCierreProgresivos[id][pozo] : '';
             contenedorInputs.innerHTML += `
-                <div class="col-span-2 flex justify-between items-center bg-indigo-50 p-3 rounded-xl border border-indigo-100">
-                    <label class="text-xs font-bold text-indigo-800 uppercase w-1/3">${nombrePozo}</label>
-                    <div class="relative w-2/3">
-                        <span class="absolute left-3 top-2.5 text-slate-400 font-bold">S/</span>
-                        <input type="number" step="0.01" data-pozo="${nombrePozo}" value="${valorPrevio}" placeholder="0.00" class="w-full bg-white border border-indigo-200 rounded-lg py-2 pl-8 pr-3 text-right font-bold text-slate-700 outline-none focus:border-indigo-500 input-cierre-pozo">
-                    </div>
+                <div>
+                    <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">${pozo}</label>
+                    <input type="number" id="pozo_${pozo}" value="${valorPrevio}" placeholder="Ej: 1500.50" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm font-bold focus:border-indigo-500 outline-none text-slate-700">
                 </div>
             `;
         });
     }
 
-    document.getElementById('modalCierreProgresivo').classList.remove('hidden');
+    const modal = document.getElementById('modalCierreProgresivo'); 
+    const content = document.getElementById('contentCierreProgresivo'); 
+    modal.classList.remove('hidden');
     setTimeout(() => {
-        document.getElementById('modalCierreProgresivo').classList.remove('opacity-0');
-        document.getElementById('contentCierreProgresivo').classList.remove('translate-y-full');
+        modal.classList.remove('opacity-0');
+        content.classList.remove('translate-y-full');
     }, 10);
-}
+};
 
-document.getElementById('btnGuardarCierreProgresivo').addEventListener('click', () => {
-    const inputs = document.querySelectorAll('.input-cierre-pozo');
-    const valores = {};
+document.getElementById('btnGuardarCierreProgresivo').addEventListener('click', () => { 
+    if (!idProgresivoEditando) return;
+    const valoresGuardados = {};
     let todoLleno = true;
-
-    inputs.forEach(input => {
-        const val = input.value.trim();
+    nombresPozosEditando.forEach(pozo => {
+        const val = document.getElementById(`pozo_${pozo}`).value.trim();
         if (val === '') todoLleno = false;
-        valores[input.getAttribute('data-pozo')] = val ? parseFloat(val) : 0;
+        else valoresGuardados[pozo] = parseFloat(val);
     });
 
     if (!todoLleno) {
-        alert('Ingresa un monto en todos los pozos antes de guardar.');
-        return; 
+        if(!confirm('Faltan pozos por llenar. ¿Guardar de todos modos?')) return;
     }
 
-    valoresCierreProgresivos[progresivoCierreActual] = valores;
-    document.getElementById('btnCancelarCierreProgresivo').click();
-    document.getElementById('btnFinalizarTurno').click(); 
+    window.valoresCierreProgresivos[idProgresivoEditando] = valoresGuardados;
+    document.getElementById('btnCancelarCierreProgresivo').click(); 
+    refrescarProgresivosCierre(); 
 });
 
-document.getElementById('btnCancelarCierreProgresivo').addEventListener('click', () => {
-    document.getElementById('modalCierreProgresivo').classList.add('opacity-0');
-    document.getElementById('contentCierreProgresivo').classList.add('translate-y-full');
-    setTimeout(() => document.getElementById('modalCierreProgresivo').classList.add('hidden'), 300);
+// ==========================================
+// 5. CERRAR MODALES
+// ==========================================
+document.getElementById('btnCancelarCierre').addEventListener('click', () => { 
+    const modal = document.getElementById('modalCierre');
+    const content = document.getElementById('modalContentCierre');
+    modal.classList.add('opacity-0');
+    content.classList.add('translate-y-full');
+    setTimeout(() => modal.classList.add('hidden'), 300);
 });
 
-document.getElementById('btnCancelarCierre').addEventListener('click', () => {
-    document.getElementById('modalCierre').classList.add('opacity-0');
-    document.getElementById('modalContentCierre').classList.add('translate-y-full');
-    setTimeout(() => document.getElementById('modalCierre').classList.add('hidden'), 300);
+document.getElementById('btnCancelarCierreProgresivo').addEventListener('click', () => { 
+    const modal = document.getElementById('modalCierreProgresivo');
+    const content = document.getElementById('contentCierreProgresivo');
+    modal.classList.add('opacity-0');
+    content.classList.add('translate-y-full');
+    setTimeout(() => modal.classList.add('hidden'), 300);
 });
 
-// 5. CONFIRMAR CIERRE DE TURNO (Supabase Save)
+// ==========================================
+// 6. CONFIRMAR CIERRE FINAL A SUPABASE
+// ==========================================
 document.getElementById('btnConfirmarCierre').addEventListener('click', async () => {
     const btnCierre = document.getElementById('btnConfirmarCierre');
     const textoOriginal = btnCierre.innerText;
-    btnCierre.innerText = 'Guardando y Cerrando...';
+    btnCierre.innerText = 'Guardando...';
     btnCierre.disabled = true;
 
     try {
-        // Preparamos los datos EXACTAMENTE con los nombres de tus columnas
+        const aforoValor = parseInt(document.getElementById('aforoTurno').value);
+
         const datosActualizar = {
             com_produc: document.getElementById('comProduc').value.trim(),
             com_sala: document.getElementById('comSala').value.trim(),
-            progresivos_finales: valoresCierreProgresivos // <-- ¡Asegúrate de que esta línea exista y NO tenga "//" al inicio!
+            com_competencia: document.getElementById('comCompetencia').value.trim(),
+            aforo: isNaN(aforoValor) ? null : aforoValor,
+            top_juegos: window.juegosRanking.length > 0 ? window.juegosRanking.join(', ') : 'Ninguno',
+            progresivos_iniciales: window.progresivosTurno.length > 0 ? window.progresivosTurno : null,
+            progresivos_finales: Object.keys(window.valoresCierreProgresivos).length > 0 ? window.valoresCierreProgresivos : null,
+            estado: 'Completado'
         };
 
-        // ⚠️ ATENCIÓN: Si quieres guardar los montos de los progresivos que la anfitriona llenó, 
-        // NECESITAS crear una columna llamada 'progresivos_finales' de tipo JSONB en tu tabla 'reportes'.
-        // Si ya la creaste, quita las dos barras (//) de la siguiente línea:
-        // datosActualizar.progresivos_finales = valoresCierreProgresivos;
-
-        const { error } = await supabaseClient
-            .from('reportes')
-            .update(datosActualizar)
-            .eq('id', reporteIdActual);
-
+        const { error } = await supabaseClient.from('reportes').update(datosActualizar).eq('id', reporteIdActual);
         if (error) throw error;
 
-        // Limpiamos la memoria del navegador
         localStorage.removeItem('turno_activo_id');
         localStorage.removeItem('turno_ini');
         localStorage.removeItem('turno_fin');
-        localStorage.removeItem('progresivos_turno');
+        localStorage.removeItem('progresivos_turno'); 
 
-        alert('¡Turno cerrado y guardado correctamente! Gran trabajo.');
+        alert('¡Turno cerrado y guardado correctamente! Eres la mejor espía 🕵️‍♀️');
         window.location.href = 'dashboard.html';
 
     } catch (error) {
-        alert('Hubo un problema al cerrar el turno: ' + error.message);
+        alert('Error: ' + error.message);
         btnCierre.innerText = textoOriginal;
         btnCierre.disabled = false;
     }
