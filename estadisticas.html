@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Estadísticas y BI</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Cargamos la librería de gráficos -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-slate-100 text-slate-800 antialiased min-h-screen flex flex-col">
+
+  <!-- Header -->
+  <header class="bg-slate-900 text-white px-6 py-5 shadow-md flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <button onclick="window.location.href='admin.html'" class="bg-slate-800 p-2 rounded-lg text-slate-300 hover:text-white transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+      </button>
+      <div>
+        <h1 class="text-sm text-purple-400 leading-none font-bold uppercase tracking-wider">Business Intelligence</h1>
+        <h2 class="text-xl font-black leading-tight">Estadísticas</h2>
+      </div>
+    </div>
+  </header>
+
+  <main class="p-6 max-w-7xl mx-auto w-full space-y-6">
+    
+    <!-- Filtros de Fecha -->
+    <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-wrap gap-4 items-end">
+        <div class="flex-1 min-w-[150px]">
+            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Desde</label>
+            <input type="date" id="filtroInicio" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-sm font-medium outline-none focus:border-purple-500">
+        </div>
+        <div class="flex-1 min-w-[150px]">
+            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Hasta</label>
+            <input type="date" id="filtroFin" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-sm font-medium outline-none focus:border-purple-500">
+        </div>
+        <button id="btnProcesar" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2.5 px-6 rounded-xl shadow-md transition-all active:scale-95">
+            Analizar Datos
+        </button>
+    </div>
+
+    <div id="loaderData" class="text-center text-purple-600 font-bold hidden py-10">Procesando millones de datos... ⏳</div>
+
+    <div id="dashboardStats" class="hidden space-y-6">
+        <!-- Gráficos Principales -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- ========================================== -->
+        <!-- NUEVOS MÓDULOS GERENCIALES                 -->
+        <!-- ========================================== -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 pt-2">
+            <!-- Gráfico Día vs Noche -->
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+                <h3 class="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4">Aforo: Tarde vs Noche</h3>
+                <canvas id="chartTurnos" height="200"></canvas>
+            </div>
+            
+            <!-- Gráfico de Fallas -->
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+                <h3 class="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4">Top Fallas Técnicas</h3>
+                <canvas id="chartFallas" height="200"></canvas>
+            </div>
+
+            <!-- Radar de Competencia -->
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-orange-200 flex flex-col relative overflow-hidden">
+                <div class="absolute top-0 right-0 p-4 opacity-10 text-5xl">🕵️</div>
+                <h3 class="text-sm font-black text-orange-600 uppercase tracking-wider mb-4 z-10">Radar Competencia</h3>
+                <div id="radarCompetencia" class="space-y-3 overflow-y-auto flex-1 max-h-[250px] pr-2 z-10 custom-scrollbar">
+                    <!-- JS inyecta los chismes aquí -->
+                </div>
+            </div>
+        </div>
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+                <h3 class="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4">Ocupación por Día (Jugadores)</h3>
+                <canvas id="chartDias" height="100"></canvas>
+            </div>
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+                <h3 class="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4">Mapa de Calor: Horas Pico</h3>
+                <canvas id="chartHoras" height="100"></canvas>
+            </div>
+        </div>
+
+        <!-- Rankings Dinámicos -->
+        <!-- Rankings Dinámicos (Ahora con 6 columnas distribuidas) -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            
+            <!-- Salas -->
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider">Aforo por Sala</h3>
+                    <button onclick="invertirLista('salas')" class="bg-slate-100 p-1.5 rounded text-slate-500 hover:bg-slate-200 transition-colors" title="Invertir Ranking">↕️</button>
+                </div>
+                <div id="rankSalas" class="space-y-2 flex-1"></div>
+            </div>
+
+            <!-- Anfitrionas -->
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-indigo-200 flex flex-col">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xs font-bold text-indigo-600 uppercase tracking-wider">Top Anfitrionas</h3>
+                    <button onclick="invertirLista('anfitrionas')" class="bg-indigo-50 p-1.5 rounded text-indigo-600 hover:bg-indigo-100 transition-colors" title="Invertir Ranking">↕️</button>
+                </div>
+                <div id="rankAnfitrionas" class="space-y-2 flex-1"></div>
+            </div>
+
+            <!-- Juegos -->
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider">Juegos + Ocupados</h3>
+                    <button onclick="invertirLista('juegos')" class="bg-slate-100 p-1.5 rounded text-slate-500 hover:bg-slate-200 transition-colors">↕️</button>
+                </div>
+                <div id="rankJuegos" class="space-y-2 flex-1"></div>
+            </div>
+
+            <!-- Gabinetes -->
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider">Gabinetes Favoritos</h3>
+                    <button onclick="invertirLista('gabinetes')" class="bg-slate-100 p-1.5 rounded text-slate-500 hover:bg-slate-200 transition-colors">↕️</button>
+                </div>
+                <div id="rankGabinetes" class="space-y-2 flex-1"></div>
+            </div>
+
+            <!-- Progresivos (Crecimiento Global) -->
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-emerald-200 flex flex-col">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xs font-bold text-emerald-600 uppercase tracking-wider">Progresivos (Global)</h3>
+                    <button onclick="invertirLista('progresivos')" class="bg-emerald-50 p-1.5 rounded text-emerald-600 hover:bg-emerald-100 transition-colors">↕️</button>
+                </div>
+                <div id="rankProgresivos" class="space-y-2 flex-1"></div>
+            </div>
+
+            <!-- Pozos Específicos (+ Sala) -->
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-emerald-200 flex flex-col">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xs font-bold text-emerald-600 uppercase tracking-wider">Pozos que + Suben</h3>
+                    <button onclick="invertirLista('pozos')" class="bg-emerald-50 p-1.5 rounded text-emerald-600 hover:bg-emerald-100 transition-colors">↕️</button>
+                </div>
+                <div id="rankPozos" class="space-y-2 flex-1"></div>
+            </div>
+
+        </div>
+  </main>
+
+  <script src="js/supabase.js"></script>
+  <script src="js/estadisticas.js"></script>
+</body>
+</html>
