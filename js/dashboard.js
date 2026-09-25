@@ -50,13 +50,11 @@ window.cargarHistorial = async function() {
     const contenedorList = document.getElementById('reportesList');
     if (!userId) return;
 
-    // Cambiamos el título si es Admin
     const tituloSeccion = document.querySelector('h3.uppercase');
     if (cargoActual === 'Admin' || cargoActual === 'Administrador') {
         if(tituloSeccion) tituloSeccion.textContent = 'Últimos Reportes (Visión Global)';
     }
 
-    // Consulta a Supabase
     let query = supabaseClient
         .from('reportes')
         .select(`
@@ -68,7 +66,6 @@ window.cargarHistorial = async function() {
         .order('created_at', { ascending: false })
         .limit(15); 
 
-    // Si NO es administrador, lo filtramos
     if (cargoActual !== 'Admin' && cargoActual !== 'Administrador') {
         query = query.eq('usuario_id', userId);
     }
@@ -91,7 +88,6 @@ window.cargarHistorial = async function() {
             const horaIni = reporte.turno_ini ? reporte.turno_ini.substring(0, 5) : '--:--';
             const horaFin = reporte.turno_fin ? reporte.turno_fin.substring(0, 5) : '--:--';
 
-            // Extras para el Admin (Nombre y Botón Borrar)
             let anfitrionaBadge = '';
             let btnBorrar = ''; 
             
@@ -167,9 +163,9 @@ window.abrirDetalleTurno = async function(reporteId) {
                 aforo, top_juegos, progresivos_iniciales, progresivos_finales, 
                 salas(nombre),
                 reporte_asignaciones(
-                    id, cantidad, ap_minima, ap_maxima, denominaciones, progresivo_id,
+                    id, cantidad, denominaciones, progresivo_id, ubicacion,
                     juegos(juego), gabinetes(modelo), progresivos(nombre),
-                    ocupaciones(bloque_horario, ocupacion),
+                    ocupaciones(bloque_horario, ocupacion, ap_minima, ap_maxima),
                     incidencias(serie, error, cantidad)
                 )
             `)
@@ -225,16 +221,29 @@ window.abrirDetalleTurno = async function(reporteId) {
                     const juego = asig.juegos?.juego || 'Desconocido';
                     const gabinete = asig.gabinetes?.modelo || 'Desconocido';
                     const denom = asig.denominaciones || 'N/A';
+                    // INYECTAMOS LA UBICACIÓN CON SU ÍCONO
+                    const ubicacionHTML = asig.ubicacion ? `<p class="text-[10px] text-blue-600 font-bold mt-1 tracking-wide">📍 ${asig.ubicacion}</p>` : '';
 
                     let htmlHoras = '';
                     if (asig.ocupaciones && Array.isArray(asig.ocupaciones) && asig.ocupaciones.length > 0) {
                         const ocupacionesOrdenadas = [...asig.ocupaciones].sort((a, b) => (a.bloque_horario || '').localeCompare(b.bloque_horario || ''));
-                        htmlHoras += `<div class="grid grid-cols-2 gap-1 mt-2">`;
+                        htmlHoras += `<div class="grid grid-cols-2 md:grid-cols-3 gap-1 mt-2">`;
+                        
                         ocupacionesOrdenadas.forEach(oc => {
-                            htmlHoras += `<div class="bg-blue-50/50 text-[10px] p-1.5 rounded text-blue-900 flex justify-between border border-blue-100/50">
-                                            <span class="font-bold opacity-70">${oc.bloque_horario}</span>
-                                            <span class="font-black">${oc.ocupacion} jug.</span>
-                                          </div>`;
+                            const apMinTXT = oc.ap_minima ? `S/ ${oc.ap_minima}` : '-';
+                            const apMaxTXT = oc.ap_maxima ? `S/ ${oc.ap_maxima}` : '-';
+                            
+                            htmlHoras += `
+                            <div class="bg-blue-50/50 text-[9px] p-1.5 rounded text-blue-900 flex flex-col border border-blue-100/50">
+                                <div class="flex justify-between border-b border-blue-100/50 pb-0.5 mb-0.5">
+                                    <span class="font-bold opacity-70">${oc.bloque_horario}</span>
+                                    <span class="font-black">${oc.ocupacion} jug.</span>
+                                </div>
+                                <div class="flex justify-between opacity-80 font-medium">
+                                    <span>Mín: ${apMinTXT}</span>
+                                    <span>Máx: ${apMaxTXT}</span>
+                                </div>
+                            </div>`;
                         });
                         htmlHoras += `</div>`;
                     }
@@ -285,11 +294,12 @@ window.abrirDetalleTurno = async function(reporteId) {
                     }
 
                     htmlMaquinas += `
-                        <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
+                        <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 mb-3">
                             <div class="flex justify-between items-start border-b border-slate-100 pb-2 mb-2">
                                 <div>
                                     <h5 class="font-bold text-slate-800 text-sm leading-tight">${juego}</h5>
                                     <p class="text-[9px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">${gabinete} • ${asig.cantidad} unidades</p>
+                                    ${ubicacionHTML}
                                 </div>
                                 <span class="bg-slate-100 text-slate-500 font-bold text-[9px] px-2 py-1 rounded-md h-fit">Denom: ${denom}</span>
                             </div>
@@ -352,67 +362,8 @@ window.borrarReporte = async function(reporteId) {
 };
 
 // ==========================================
-// 7. COMPARTIR WHATSAPP Y EXPORTAR (INDIVIDUAL)
+// 7. EXPORTAR A EXCEL (SOLO ADMIN)
 // ==========================================
-const btnWA = document.getElementById('btnCompartirWA');
-if(btnWA) {
-    btnWA.addEventListener('click', () => {
-        const r = window.reporteActualData;
-        if (!r) return;
-
-        const fechaLimpia = new Date(r.fecha).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
-        const iniF = r.turno_ini ? r.turno_ini.substring(0, 5) : '--:--';
-        const finF = r.turno_fin ? r.turno_fin.substring(0, 5) : '--:--';
-        
-        let textoWA = `🎰 *REPORTE DE TURNO* 🎰\n`;
-        textoWA += `📍 *Sala:* ${r.salas?.nombre || 'N/A'}\n`;
-        textoWA += `📅 *Fecha:* ${fechaLimpia} | 🕒 ${iniF} a ${finF}\n`;
-        textoWA += `👥 *Aforo:* ${r.aforo !== null ? r.aforo + '%' : 'N/A'}\n`;
-        
-        const topJuegos = r.top_juegos && r.top_juegos !== 'Ninguno' ? r.top_juegos.split(', ') : [];
-        if (topJuegos.length > 0) textoWA += `🥇 *Top 1:* ${topJuegos[0]}\n`;
-        
-        textoWA += `\n*🕹️ DETALLE OPERATIVO:*\n`;
-        
-        if (r.reporte_asignaciones && r.reporte_asignaciones.length > 0) {
-            r.reporte_asignaciones.forEach(a => {
-                textoWA += `\n🔸 *${a.juegos?.juego}* (${a.gabinetes?.modelo}) - ${a.cantidad} un.\n`;
-                if (a.ocupaciones && a.ocupaciones.length > 0) {
-                    const horas = [...a.ocupaciones].sort((x, y) => (x.bloque_horario || '').localeCompare(y.bloque_horario || ''));
-                    textoWA += `   🕒 ` + horas.map(o => `${o.bloque_horario.split(' - ')[0]} (${o.ocupacion}j)`).join(', ') + `\n`;
-                }
-                if (a.incidencias && a.incidencias.length > 0) {
-                    textoWA += `   🚨 Fallas: ` + a.incidencias.map(i => `S/N: ${i.serie} - ${i.error}`).join(' | ') + `\n`;
-                }
-                if (a.progresivo_id) {
-                    const nombreProg = a.progresivos?.nombre || 'Prog';
-                    let iniciales = r.progresivos_iniciales ? (r.progresivos_iniciales.find(p => p.id == a.progresivo_id)?.valores || {}) : {};
-                    let finales = r.progresivos_finales ? (r.progresivos_finales[a.progresivo_id] || {}) : {};
-                    const keys = new Set([...Object.keys(iniciales), ...Object.keys(finales)]);
-                    if(keys.size > 0) {
-                        textoWA += `   💰 *${nombreProg}:*\n`;
-                        keys.forEach(pozo => {
-                            const valIni = iniciales[pozo] ? iniciales[pozo].toLocaleString() : '--';
-                            const valFin = finales[pozo] ? finales[pozo].toLocaleString() : '--';
-                            textoWA += `      - ${pozo}: S/ ${valIni} ➔ S/ ${valFin}\n`;
-                        });
-                    }
-                }
-            });
-        } else {
-            textoWA += `   Sin máquinas registradas.\n`;
-        }
-
-        textoWA += `\n*📝 COMENTARIOS:*\n`;
-        textoWA += `🔹 *Producto:* ${r.com_produc || 'N/A'}\n`;
-        textoWA += `🔹 *Sala:* ${r.com_sala || 'N/A'}\n`;
-        if (r.com_competencia) textoWA += `🕵️ *Competencia:* ${r.com_competencia}\n`;
-
-        const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(textoWA)}`;
-        window.open(waUrl, '_blank');
-    });
-}
-
 const btnExcel = document.getElementById('btnExportarExcel');
 if(btnExcel) {
     btnExcel.addEventListener('click', () => {
@@ -435,7 +386,11 @@ if(btnExcel) {
         if (r.reporte_asignaciones && r.reporte_asignaciones.length > 0) {
             r.reporte_asignaciones.forEach(a => {
                 let ocupStr = '';
-                if (a.ocupaciones) ocupStr = a.ocupaciones.map(o => `${o.bloque_horario}: ${o.ocupacion} jug.`).join(' | ');
+                if (a.ocupaciones) ocupStr = a.ocupaciones.map(o => {
+                    let ap = '';
+                    if(o.ap_minima || o.ap_maxima) ap = ` [S/${o.ap_minima||'-'}-S/${o.ap_maxima||'-'}]`;
+                    return `${o.bloque_horario}: ${o.ocupacion} jug.${ap}`;
+                }).join(' | ');
                 
                 let fallaStr = '';
                 if (a.incidencias) fallaStr = a.incidencias.map(i => `Serie ${i.serie}: ${i.error}`).join(' | ');
@@ -458,8 +413,9 @@ if(btnExcel) {
                     "Plataforma (Mix)": a.juegos?.juego || '',
                     "Gabinete": a.gabinetes?.modelo || '',
                     "Cantidad": a.cantidad || '',
+                    "Ubicación": a.ubicacion || 'No registrada', // Agregado a Excel
                     "Denominaciones": a.denominaciones || '',
-                    "Ocupación (Horas)": ocupStr,
+                    "Ocupación (Horas y Apuestas)": ocupStr,
                     "Fallas Reportadas": fallaStr,
                     "Progresivos": progStr
                 });

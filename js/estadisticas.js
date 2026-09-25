@@ -7,12 +7,12 @@ if (!userId || (localStorage.getItem('usuario_cargo') !== 'Admin' && localStorag
 
 // Variables Globales 
 let metricas = { 
-    salas: [], anfitrionas: [], juegos: [], gabinetes: [], progresivos: [], pozos: [],
+    salas: [], anfitrionas: [], juegos: [], gabinetes: [], progresivos: [], pozos: [], ubicaciones: [], // <--- NUEVO
     fechas: {}, horas: {}, turnos: { 'Turno Tarde': 0, 'Turno Noche': 0 }, 
     fallas: {}, chismes: [] 
 };
-// Estado de ordenamiento ('desc' = mayor a menor, 'asc' = menor a mayor)
-let ordenActivo = { salas: 'desc', anfitrionas: 'desc', juegos: 'desc', gabinetes: 'desc', progresivos: 'desc', pozos: 'desc' };
+// Estado de ordenamiento
+let ordenActivo = { salas: 'desc', anfitrionas: 'desc', juegos: 'desc', gabinetes: 'desc', progresivos: 'desc', pozos: 'desc', ubicaciones: 'desc' }; // <--- NUEVO
 let chartInstancias = { dias: null, horas: null, turnos: null, fallas: null };
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -36,11 +36,11 @@ async function procesarEstadisticas() {
     const fFin = document.getElementById('filtroFin').value;
 
     try {
-        // MEGA CONSULTA: Traemos usuarios para saber las anfitrionas
         const { data: reportes, error } = await supabaseClient.from('reportes').select(`
             fecha, aforo, turno_ini, com_competencia,
             salas(nombre), usuarios(nombres, apellidos), progresivos_iniciales, progresivos_finales,
             reporte_asignaciones(
+                ubicacion, 
                 juegos(juego), gabinetes(modelo), progresivos(nombre),
                 ocupaciones(bloque_horario, ocupacion), incidencias(error)
             )
@@ -63,70 +63,58 @@ async function procesarEstadisticas() {
 
 function calcularMetricas(reportes) {
     let tmpSalas = {}; let tmpAnfitrionas = {}; let tmpJuegos = {}; 
-    let tmpGabinetes = {}; let tmpProg = {}; let tmpPozos = {};
+    let tmpGabinetes = {}; let tmpProg = {}; let tmpPozos = {}; let tmpUbicaciones = {}; // <--- NUEVO
     metricas.fechas = {}; metricas.horas = {}; metricas.turnos = { 'Turno Tarde': 0, 'Turno Noche': 0 }; metricas.fallas = {}; metricas.chismes = [];
 
     reportes.forEach(r => {
         const sala = r.salas?.nombre || 'Desconocida';
-        const anfitriona = r.usuarios ? `${r.usuarios.nombres.split(' ')[0]} ${r.usuarios.apellidos.split(' ')[0]}` : 'Desconocida'; // Nombre corto
-        let sumaOcupacionTurno = 0; // Para medir cuánto trabajó la anfitriona
+        const anfitriona = r.usuarios ? `${r.usuarios.nombres.split(' ')[0]} ${r.usuarios.apellidos.split(' ')[0]}` : 'Desconocida';
+        let sumaOcupacionTurno = 0;
         
-        // 1. Aforo y Turnos
         if (!tmpSalas[sala]) tmpSalas[sala] = { suma: 0, count: 0 };
         if (r.aforo) { 
             tmpSalas[sala].suma += r.aforo; 
             tmpSalas[sala].count++; 
-            
-            if (r.turno_ini && parseInt(r.turno_ini.substring(0,2)) < 18) {
-                metricas.turnos['Turno Tarde'] += r.aforo;
-            } else {
-                metricas.turnos['Turno Noche'] += r.aforo;
-            }
+            if (r.turno_ini && parseInt(r.turno_ini.substring(0,2)) < 18) metricas.turnos['Turno Tarde'] += r.aforo;
+            else metricas.turnos['Turno Noche'] += r.aforo;
         }
 
-        // 2. Chismes de la Competencia
         if (r.com_competencia && r.com_competencia.trim() !== '' && !r.com_competencia.toLowerCase().includes('sin novedad')) {
             metricas.chismes.push({ fecha: r.fecha, sala: sala, texto: r.com_competencia });
         }
 
         if (!metricas.fechas[r.fecha]) metricas.fechas[r.fecha] = 0;
 
-        // 3. Progresivos y Pozos Individuales
         if (r.progresivos_iniciales && r.progresivos_finales) {
             r.progresivos_iniciales.forEach(pIni => {
                 const pFin = r.progresivos_finales[pIni.id];
                 if (pFin) {
                     let totalCrecimientoGlobal = 0;
                     let nombreProg = 'Prog ' + pIni.id;
-                    
                     if(r.reporte_asignaciones) {
                         const asigP = r.reporte_asignaciones.find(a => a.progresivos && a.progresivos.nombre && r.progresivos_finales[pIni.id]);
                         if (asigP) nombreProg = asigP.progresivos.nombre;
                     }
-
                     Object.keys(pIni.valores).forEach(pozo => {
                         if (pFin[pozo]) {
                             let subida = pFin[pozo] - pIni.valores[pozo];
                             totalCrecimientoGlobal += subida;
-                            
-                            // POZO ESPECÍFICO (+ Sala)
                             let nombrePozoExacto = `${pozo} (${nombreProg}) - ${sala}`;
                             if(!tmpPozos[nombrePozoExacto]) tmpPozos[nombrePozoExacto] = 0;
                             tmpPozos[nombrePozoExacto] += subida;
                         }
                     });
-                    
                     if (!tmpProg[nombreProg]) tmpProg[nombreProg] = 0;
                     tmpProg[nombreProg] += totalCrecimientoGlobal;
                 }
             });
         }
 
-        // 4. Máquinas, Ocupaciones y Fallas Técnicas
         if (r.reporte_asignaciones) {
             r.reporte_asignaciones.forEach(a => {
                 const juego = a.juegos?.juego || 'S/N';
                 const gabinete = a.gabinetes?.modelo || 'S/N';
+                const ubicacion = a.ubicacion || 'Sin ubicar'; // <--- NUEVO
                 let sumaOcupacionMaquina = 0;
 
                 if (a.ocupaciones) {
@@ -149,15 +137,18 @@ function calcularMetricas(reportes) {
                 sumaOcupacionTurno += sumaOcupacionMaquina;
                 metricas.fechas[r.fecha] += sumaOcupacionMaquina;
                 
-                if (!tmpJuegos[juego]) tmpJuegos[juego] = 0; 
-                tmpJuegos[juego] += sumaOcupacionMaquina;
+                if (!tmpJuegos[juego]) tmpJuegos[juego] = 0; tmpJuegos[juego] += sumaOcupacionMaquina;
+                if (!tmpGabinetes[gabinete]) tmpGabinetes[gabinete] = 0; tmpGabinetes[gabinete] += sumaOcupacionMaquina;
                 
-                if (!tmpGabinetes[gabinete]) tmpGabinetes[gabinete] = 0; 
-                tmpGabinetes[gabinete] += sumaOcupacionMaquina;
+                // <--- NUEVO: Acumulamos el rendimiento de esta zona de la sala
+                let ubiExacta = `${ubicacion} (${sala})`; 
+                if (ubicacion !== 'Sin ubicar') {
+                    if (!tmpUbicaciones[ubiExacta]) tmpUbicaciones[ubiExacta] = 0;
+                    tmpUbicaciones[ubiExacta] += sumaOcupacionMaquina;
+                }
             });
         }
 
-        // Registrar cuánto trabajó la anfitriona (Total de jugadores atendidos en sus máquinas)
         if (!tmpAnfitrionas[anfitriona]) tmpAnfitrionas[anfitriona] = 0;
         tmpAnfitrionas[anfitriona] += sumaOcupacionTurno;
     });
@@ -168,12 +159,14 @@ function calcularMetricas(reportes) {
     metricas.gabinetes = Object.keys(tmpGabinetes).map(k => ({ nombre: k, valor: tmpGabinetes[k], sufijo: ' jug.' }));
     metricas.progresivos = Object.keys(tmpProg).map(k => ({ nombre: k, valor: tmpProg[k], prefijo: 'S/ ' }));
     metricas.pozos = Object.keys(tmpPozos).map(k => ({ nombre: k, valor: tmpPozos[k], prefijo: 'S/ ' }));
+    metricas.ubicaciones = Object.keys(tmpUbicaciones).map(k => ({ nombre: k, valor: tmpUbicaciones[k], sufijo: ' jug.' })); // <--- NUEVO
 }
 
 function renderizarListas() {
-    ['salas', 'anfitrionas', 'juegos', 'gabinetes', 'progresivos', 'pozos'].forEach(categoria => {
+    ['salas', 'anfitrionas', 'juegos', 'gabinetes', 'progresivos', 'pozos', 'ubicaciones'].forEach(categoria => {
         metricas[categoria].sort((a, b) => ordenActivo[categoria] === 'desc' ? b.valor - a.valor : a.valor - b.valor);
         const contenedor = document.getElementById(`rank${categoria.charAt(0).toUpperCase() + categoria.slice(1)}`);
+        if(!contenedor) return;
         contenedor.innerHTML = '';
 
         if (metricas[categoria].length === 0) {

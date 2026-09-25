@@ -124,7 +124,7 @@ async function cargarAsignacionesPrevias() {
     // 2. CARGAR MÁQUINAS ASIGNADAS
     const { data } = await supabaseClient
         .from('reporte_asignaciones')
-        .select(`id, cantidad, juego_id, gabinete_id, progresivo_id, ap_minima, ap_maxima, denominaciones, juegos(juego), gabinetes(modelo)`)
+        .select(`id, cantidad, juego_id, gabinete_id, progresivo_id, denominaciones, ubicacion, juegos(juego), gabinetes(modelo)`)
         .eq('reporte_id', reporteIdActual);
 
     if (data) {

@@ -3,7 +3,7 @@
 // ==========================================
 let modoEdicionAsignacionId = null;
 let modoEdicionIndex = null;
-window.progresivoSeleccionadoId = null; // Variable añadida para el progresivo
+window.progresivoSeleccionadoId = null; 
 
 // ==========================================
 // ASIGNAR MÁQUINAS Y GENERAR BOTONES
@@ -12,13 +12,11 @@ document.getElementById('btnAsignar').addEventListener('click', async () => {
     const juegoId = document.getElementById('selJuego').value;
     const gabineteId = document.getElementById('selGabinete').value;
     const cantidad = document.getElementById('cantMaquina').value;
-    
-    const apMin = document.getElementById('apMin').value;
-    const apMax = document.getElementById('apMax').value;
+    const ubicacion = document.getElementById('ubicacionMaquina').value.trim(); // <--- NUEVO
     const denom = denominacionesSeleccionadas.length > 0 ? denominacionesSeleccionadas.join(' / ') : null;
 
-    if (!juegoId || !gabineteId || !cantidad) {
-        alert('Selecciona la plataforma, gabinete y la cantidad.');
+    if (!juegoId || !gabineteId || !cantidad || denominacionesSeleccionadas.length === 0) {
+        alert('Selecciona la plataforma, gabinete, cantidad y denominaciones.');
         return;
     }
 
@@ -31,9 +29,8 @@ document.getElementById('btnAsignar').addEventListener('click', async () => {
         gabinete_id: gabineteId,
         cantidad: parseInt(cantidad),
         progresivo_id: typeof progresivoSeleccionadoId !== 'undefined' ? progresivoSeleccionadoId : null,
-        ap_minima: apMin ? parseFloat(apMin) : null,
-        ap_maxima: apMax ? parseFloat(apMax) : null,
-        denominaciones: denom
+        denominaciones: denom,
+        ubicacion: ubicacion || null // <--- NUEVO
     };
 
     try {
@@ -45,14 +42,12 @@ document.getElementById('btnAsignar').addEventListener('click', async () => {
                 .from('reporte_asignaciones')
                 .update(datosGuardar)
                 .eq('id', modoEdicionAsignacionId)
-                .select(`id, cantidad, juego_id, gabinete_id, progresivo_id, ap_minima, ap_maxima, denominaciones, juegos(juego), gabinetes(modelo)`)
+                .select(`id, cantidad, juego_id, gabinete_id, progresivo_id, denominaciones, ubicacion, juegos(juego), gabinetes(modelo)`)
                 .single();
 
             if (error) throw error;
             dataNuevo = data;
-
             asignacionesEnMemoria[modoEdicionIndex] = dataNuevo;
-
             modoEdicionAsignacionId = null;
             modoEdicionIndex = null;
 
@@ -61,12 +56,12 @@ document.getElementById('btnAsignar').addEventListener('click', async () => {
             const { data, error } = await supabaseClient
                 .from('reporte_asignaciones')
                 .insert([datosGuardar])
-                .select(`id, cantidad, juego_id, gabinete_id, progresivo_id, ap_minima, ap_maxima, denominaciones, juegos(juego), gabinetes(modelo)`)
+                .select(`id, cantidad, juego_id, gabinete_id, progresivo_id, denominaciones, ubicacion, juegos(juego), gabinetes(modelo)`)
                 .single();
 
             if (error) throw error;
             dataNuevo = data;
-            dataNuevo.oculto = false; // Agregamos la propiedad para la papelera
+            dataNuevo.oculto = false; 
 
             juegosUnicosAsignados.add(dataNuevo.juegos.juego);
             asignacionesEnMemoria.push(dataNuevo);
@@ -76,8 +71,7 @@ document.getElementById('btnAsignar').addEventListener('click', async () => {
         document.getElementById('cantMaquina').value = '1';
         document.getElementById('selJuego').value = '';
         document.getElementById('selGabinete').value = '';
-        document.getElementById('apMin').value = '';
-        document.getElementById('apMax').value = '';
+        document.getElementById('ubicacionMaquina').value = ''; // <--- NUEVO
         
         denominacionesSeleccionadas = [];
         const btnDenom = document.getElementById('btnAbrirModalDenom');
@@ -118,6 +112,7 @@ window.renderizarBottonAsignado = function() {
         const nombreJuego = asig.juegos?.juego || 'Juego Desconocido';
         const modeloGabinete = asig.gabinetes?.modelo || 'Gabinete Desconocido';
         const cantidad = asig.cantidad;
+        const ubicacionHTML = asig.ubicacion ? `<p class="text-[10px] text-slate-500 font-medium mt-1">📍 ${asig.ubicacion}</p>` : ''; // <--- NUEVO
 
         if (asig.oculto) {
             zonaBotones.innerHTML += `
@@ -125,12 +120,8 @@ window.renderizarBottonAsignado = function() {
                     <span class="text-[10px] font-bold text-slate-400 uppercase mb-1">🚫 Máquina Oculta</span>
                     <span class="text-xs font-bold text-slate-600 mb-3 leading-tight">${nombreJuego}</span>
                     <div class="flex gap-2 w-full">
-                        <button onclick="restaurarAsignacion(${index})" class="flex-1 bg-white text-blue-600 text-[10px] font-bold py-2 rounded shadow-sm border border-slate-200 hover:bg-blue-50 transition-colors">
-                            Restaurar
-                        </button>
-                        <button onclick="eliminarDefinitiva(${index}, '${asig.id}')" class="flex-1 bg-white text-red-600 text-[10px] font-bold py-2 rounded shadow-sm border border-slate-200 hover:bg-red-50 transition-colors">
-                            Borrar
-                        </button>
+                        <button onclick="restaurarAsignacion(${index})" class="flex-1 bg-white text-blue-600 text-[10px] font-bold py-2 rounded shadow-sm border border-slate-200 hover:bg-blue-50 transition-colors">Restaurar</button>
+                        <button onclick="eliminarDefinitiva(${index}, '${asig.id}')" class="flex-1 bg-white text-red-600 text-[10px] font-bold py-2 rounded shadow-sm border border-slate-200 hover:bg-red-50 transition-colors">Borrar</button>
                     </div>
                 </div>
             `;
@@ -145,6 +136,7 @@ window.renderizarBottonAsignado = function() {
                         <span class="bg-blue-100 text-blue-700 text-[10px] font-bold px-2 py-0.5 rounded-md whitespace-nowrap">${cantidad} un.</span>
                     </div>
                     <h4 class="font-bold text-slate-700 text-sm leading-tight">${nombreJuego}</h4>
+                    ${ubicacionHTML}
                 </div>
                 
                 <button onclick="abrirModalOcupacion(${index})" class="w-full bg-slate-800 text-white text-xs font-bold py-2 hover:bg-slate-700 transition-colors flex items-center justify-center gap-2">
@@ -168,24 +160,13 @@ window.renderizarBottonAsignado = function() {
 };
 
 // ==========================================
-// PAPELERA DE RECICLAJE (SOFT Y HARD DELETE)
+// PAPELERA DE RECICLAJE
 // ==========================================
-window.eliminarAsignacion = function(index) {
-    asignacionesEnMemoria[index].oculto = true;
-    renderizarBottonAsignado();
-};
-
-window.restaurarAsignacion = function(index) {
-    asignacionesEnMemoria[index].oculto = false;
-    renderizarBottonAsignado();
-};
-
+window.eliminarAsignacion = function(index) { asignacionesEnMemoria[index].oculto = true; renderizarBottonAsignado(); };
+window.restaurarAsignacion = function(index) { asignacionesEnMemoria[index].oculto = false; renderizarBottonAsignado(); };
 window.eliminarDefinitiva = async function(index, idBaseDatos) {
     if (!confirm('¿Seguro que deseas ELIMINAR COMPLETAMENTE esta máquina de la base de datos?')) return;
-    
-    if (idBaseDatos) {
-        await supabaseClient.from('reporte_asignaciones').delete().eq('id', idBaseDatos);
-    }
+    if (idBaseDatos) await supabaseClient.from('reporte_asignaciones').delete().eq('id', idBaseDatos);
     asignacionesEnMemoria.splice(index, 1);
     renderizarBottonAsignado();
 };
@@ -196,9 +177,7 @@ window.editarAsignacion = function(index) {
     document.getElementById('selJuego').value = asig.juego_id || '';
     document.getElementById('selGabinete').value = asig.gabinete_id || '';
     document.getElementById('cantMaquina').value = asig.cantidad || 1;
-    
-    document.getElementById('apMin').value = asig.ap_minima || '';
-    document.getElementById('apMax').value = asig.ap_maxima || '';
+    document.getElementById('ubicacionMaquina').value = asig.ubicacion || ''; // <--- NUEVO
     
     const btnDenom = document.getElementById('btnAbrirModalDenom');
     if (asig.denominaciones) {
@@ -252,7 +231,7 @@ window.editarAsignacion = function(index) {
 };
 
 // ==========================================
-// MODAL DE OCUPACIÓN Y FALLAS
+// MODAL DE OCUPACIÓN Y FALLAS CON APUESTAS
 // ==========================================
 window.abrirModalOcupacion = async function(index) {
     const asig = asignacionesEnMemoria[index];
@@ -275,38 +254,82 @@ window.abrirModalOcupacion = async function(index) {
         document.getElementById('modalContent').classList.remove('translate-y-full');
     }, 10);
 
-    // 1. CARGAR HORAS (Ocupaciones)
-    const { data: ocupacionesPrevias } = await supabaseClient.from('ocupaciones').select('id, bloque_horario, ocupacion').eq('asignacion_id', asignId);
+    // 1. CARGAR HORAS Y APUESTAS DE SUPABASE
+    const { data: ocupacionesPrevias } = await supabaseClient
+        .from('ocupaciones')
+        .select('id, bloque_horario, ocupacion, ap_minima, ap_maxima')
+        .eq('asignacion_id', asignId);
+        
     const mapaOcupaciones = {};
-    if (ocupacionesPrevias) ocupacionesPrevias.forEach(o => mapaOcupaciones[o.bloque_horario] = { id: o.id, valor: o.ocupacion });
+    if (ocupacionesPrevias) ocupacionesPrevias.forEach(o => mapaOcupaciones[o.bloque_horario] = o);
 
     contenedor.innerHTML = ''; 
     generarTodosLosBloques(turnoInicioLocal, turnoFinLocal).forEach(bloque => {
         const datoPrevio = mapaOcupaciones[bloque];
+        let valOcupacion = datoPrevio && datoPrevio.ocupacion !== null ? datoPrevio.ocupacion : '';
+        let valMin = datoPrevio && datoPrevio.ap_minima !== null ? datoPrevio.ap_minima : '';
+        let valMax = datoPrevio && datoPrevio.ap_maxima !== null ? datoPrevio.ap_maxima : '';
+        let idRegistro = datoPrevio ? datoPrevio.id : '';
+
+        // Diseño con las 3 cajas por cada hora
         contenedor.innerHTML += `
-            <div>
-                <label class="block text-[10px] font-bold text-slate-500 mb-1 text-center">${bloque}</label>
-                <input type="number" data-bloque="${bloque}" data-idbd="${datoPrevio ? datoPrevio.id : ''}" value="${datoPrevio ? datoPrevio.valor : ''}" placeholder="Ej: 5" class="w-full bg-white border-2 border-blue-200 rounded-xl p-2 text-lg font-bold text-center focus:border-blue-500 outline-none input-ocupacion-multi transition-colors duration-300">
+            <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 flex flex-col gap-2">
+                <label class="block text-[10px] font-bold uppercase text-slate-500 text-center border-b border-slate-200 pb-1 mb-1">${bloque}</label>
+                <div class="grid grid-cols-3 gap-2">
+                    <div>
+                        <label class="block text-[9px] text-slate-400 font-bold mb-1">Personas</label>
+                        <input type="number" data-tipo="ocup" data-bloque="${bloque}" data-idbd="${idRegistro}" value="${valOcupacion}" placeholder="0" class="w-full border border-slate-200 rounded-lg p-2 text-center text-sm font-bold text-blue-700 focus:border-blue-500 outline-none input-ocupacion-multi transition-colors duration-300">
+                    </div>
+                    <div>
+                        <label class="block text-[9px] text-slate-400 font-bold mb-1">Ap. Mín</label>
+                        <input type="number" data-tipo="min" data-bloque="${bloque}" data-idbd="${idRegistro}" value="${valMin}" placeholder="S/" class="w-full border border-slate-200 rounded-lg p-2 text-center text-sm font-bold text-slate-700 focus:border-blue-500 outline-none input-ocupacion-multi transition-colors duration-300">
+                    </div>
+                    <div>
+                        <label class="block text-[9px] text-slate-400 font-bold mb-1">Ap. Máx</label>
+                        <input type="number" data-tipo="max" data-bloque="${bloque}" data-idbd="${idRegistro}" value="${valMax}" placeholder="S/" class="w-full border border-slate-200 rounded-lg p-2 text-center text-sm font-bold text-slate-700 focus:border-blue-500 outline-none input-ocupacion-multi transition-colors duration-300">
+                    </div>
+                </div>
             </div>
         `;
     });
 
+    // Guardado manual inteligente que evita fallas en la base de datos
     document.querySelectorAll('.input-ocupacion-multi').forEach(input => {
-        input.addEventListener('change', async function() {
-            const val = this.value.trim();
-            if (val === '') return;
-            const bloque = this.getAttribute('data-bloque');
-            const idRegistro = this.getAttribute('data-idbd');
+        input.addEventListener('blur', async function() {
+            const bloqueHorario = this.getAttribute('data-bloque');
+            const padre = this.closest('.grid');
+            const inputOcup = padre.querySelector('input[data-tipo="ocup"]');
+            const inputMin = padre.querySelector('input[data-tipo="min"]');
+            const inputMax = padre.querySelector('input[data-tipo="max"]');
+            let idRegistro = inputOcup.getAttribute('data-idbd');
+
+            const valOcupacion = inputOcup.value.trim();
+            const valMin = inputMin.value.trim();
+            const valMax = inputMax.value.trim();
+
+            if (valOcupacion === '') return; 
 
             this.classList.replace('bg-white', 'bg-yellow-50');
 
-            if (idRegistro) {
-                await supabaseClient.from('ocupaciones').update({ ocupacion: parseInt(val) }).eq('id', idRegistro);
+            const payload = {
+                asignacion_id: asignacionIdSeleccionada,
+                bloque_horario: bloqueHorario,
+                ocupacion: parseInt(valOcupacion) || 0,
+                ap_minima: valMin ? parseFloat(valMin) : null,
+                ap_maxima: valMax ? parseFloat(valMax) : null
+            };
+
+            if (idRegistro && idRegistro !== 'undefined' && idRegistro !== '') {
+                // Actualizamos si ya existe en la base de datos
+                await supabaseClient.from('ocupaciones').update(payload).eq('id', idRegistro);
             } else {
-                const { data } = await supabaseClient.from('ocupaciones').insert([{
-                    asignacion_id: asignacionIdSeleccionada, bloque_horario: bloque, ocupacion: parseInt(val)
-                }]).select('id').single();
-                if(data) this.setAttribute('data-idbd', data.id);
+                // Insertamos por primera vez
+                const { data, error } = await supabaseClient.from('ocupaciones').insert([payload]).select('id').single();
+                if (!error && data) {
+                    inputOcup.setAttribute('data-idbd', data.id);
+                    inputMin.setAttribute('data-idbd', data.id);
+                    inputMax.setAttribute('data-idbd', data.id);
+                }
             }
 
             this.classList.replace('bg-yellow-50', 'bg-emerald-100');
@@ -314,14 +337,13 @@ window.abrirModalOcupacion = async function(index) {
         });
     });
 
-    // 2. CARGAR FALLAS AISLADAS DE ESTA MÁQUINA
+    // 2. CARGAR FALLAS
     const { data: fallasPrevias } = await supabaseClient.from('incidencias').select('id, serie, error').eq('asignacion_id', asignId);
     contenedorFallas.innerHTML = '';
     
     if (fallasPrevias && fallasPrevias.length > 0) {
         fallasPrevias.forEach(falla => agregarBloqueFalla(falla.id, falla.serie, falla.error));
     } else {
-        // Si no hay fallas, le ponemos un bloque vacío para invitarla a escribir
         agregarBloqueFalla('', '', '');
     }
 };
@@ -344,23 +366,16 @@ window.agregarBloqueFalla = function(idBd = '', serie = '', detalle = '') {
         </button>
     `;
     
-    // Botón para eliminar este cuadro (y borrarlo de Supabase si ya existía)
     div.querySelector('.btn-eliminar-falla').addEventListener('click', async function() {
-        if (idBd) {
-            await supabaseClient.from('incidencias').delete().eq('id', idBd);
-        }
+        if (idBd) await supabaseClient.from('incidencias').delete().eq('id', idBd);
         div.remove();
     });
     
     contenedor.appendChild(div);
 };
 
-// Evento para el botón de "+"
-document.getElementById('btnAgregarFalla').addEventListener('click', () => {
-    agregarBloqueFalla('', '', '');
-});
+document.getElementById('btnAgregarFalla').addEventListener('click', () => { agregarBloqueFalla('', '', ''); });
 
-// Guardar fallas al cerrar el panel
 document.getElementById('btnGuardarFallaCerrar').addEventListener('click', async () => {
     const bloques = document.querySelectorAll('.falla-block');
     const btn = document.getElementById('btnGuardarFallaCerrar');
@@ -372,22 +387,11 @@ document.getElementById('btnGuardarFallaCerrar').addEventListener('click', async
         const serie = bloque.querySelector('.falla-serie').value.trim();
         const detalle = bloque.querySelector('.falla-detalle').value.trim();
         
-        // Solo guardamos si escribió al menos un dato
         if (serie || detalle) {
             if (idBd) {
-                // Actualizar si ya existía
-                await supabaseClient.from('incidencias').update({
-                    serie: serie || 'S/N',
-                    error: detalle || 'Falla reportada'
-                }).eq('id', idBd);
+                await supabaseClient.from('incidencias').update({ serie: serie || 'S/N', error: detalle || 'Falla reportada' }).eq('id', idBd);
             } else {
-                // Insertar si es nueva
-                await supabaseClient.from('incidencias').insert([{
-                    asignacion_id: asignacionIdSeleccionada,
-                    serie: serie || 'S/N',
-                    error: detalle || 'Falla reportada',
-                    cantidad: 1
-                }]);
+                await supabaseClient.from('incidencias').insert([{ asignacion_id: asignacionIdSeleccionada, serie: serie || 'S/N', error: detalle || 'Falla reportada', cantidad: 1 }]);
             }
         }
     }
@@ -398,7 +402,7 @@ document.getElementById('btnGuardarFallaCerrar').addEventListener('click', async
 });
 
 // ==========================================
-// FUNCIONES AUXILIARES (Horas y Modales)
+// FUNCIONES AUXILIARES
 // ==========================================
 function generarTodosLosBloques(hIni, hFin) {
     const bloques = [];
@@ -428,7 +432,7 @@ document.getElementById('btnCerrarModal').addEventListener('click', () => {
 });
 
 // ==========================================
-// VENTANA FLOTANTE: DENOMINACIONES (DINÁMICAS)
+// DENOMINACIONES Y PROGRESIVOS
 // ==========================================
 document.getElementById('btnAbrirModalDenom').addEventListener('click', () => {
     document.getElementById('modalDenominaciones').classList.remove('hidden');
@@ -438,7 +442,6 @@ document.getElementById('btnAbrirModalDenom').addEventListener('click', () => {
     }, 10);
 });
 
-// Esta función dibuja los botones con la información que llegó de Supabase
 window.renderizarBotonesDenominacion = function() {
     const contenedor = document.getElementById('contenedorBotonesDenom');
     if(!contenedor) return;
@@ -451,7 +454,6 @@ window.renderizarBotonesDenominacion = function() {
 
     window.todasLasDenominaciones.forEach(val => {
         const isSelected = denominacionesSeleccionadas.includes(val);
-        // Clases para el botón (Azul si está seleccionado, Gris si no)
         const btnClases = isSelected 
             ? 'px-4 py-2 rounded-xl font-bold transition-colors border-2 bg-blue-100 border-blue-500 text-blue-700 shadow-sm' 
             : 'px-4 py-2 rounded-xl font-bold transition-colors border-2 bg-white border-slate-200 text-slate-600 hover:bg-slate-50';
@@ -460,23 +462,11 @@ window.renderizarBotonesDenominacion = function() {
     });
 };
 
-// Función que se dispara al tocar un botón dinámico
 window.toggleDenominacion = function(val, btnElement) {
-    // Cambiar estilos visuales
-    btnElement.classList.toggle('bg-blue-100');
-    btnElement.classList.toggle('border-blue-500');
-    btnElement.classList.toggle('text-blue-700');
-    btnElement.classList.toggle('shadow-sm');
-    btnElement.classList.toggle('bg-white');
-    btnElement.classList.toggle('border-slate-200');
-    btnElement.classList.toggle('text-slate-600');
+    btnElement.classList.toggle('bg-blue-100'); btnElement.classList.toggle('border-blue-500'); btnElement.classList.toggle('text-blue-700'); btnElement.classList.toggle('shadow-sm'); btnElement.classList.toggle('bg-white'); btnElement.classList.toggle('border-slate-200'); btnElement.classList.toggle('text-slate-600');
     
-    // Agregar o quitar de la memoria
-    if(denominacionesSeleccionadas.includes(val)) {
-        denominacionesSeleccionadas = denominacionesSeleccionadas.filter(d => d !== val);
-    } else {
-        denominacionesSeleccionadas.push(val);
-    }
+    if(denominacionesSeleccionadas.includes(val)) denominacionesSeleccionadas = denominacionesSeleccionadas.filter(d => d !== val);
+    else denominacionesSeleccionadas.push(val);
 };
 
 document.getElementById('btnConfirmarDenom').addEventListener('click', () => {
@@ -495,11 +485,6 @@ document.getElementById('btnConfirmarDenom').addEventListener('click', () => {
     }
 });
 
-// ==========================================
-// VENTANA FLOTANTE: PROGRESIVOS (CONFIGURACIÓN ANTES DE ASIGNAR)
-// ==========================================
-
-// 1. Abrir Modal de Progresivo
 const btnAbrirProg = document.getElementById('btnAbrirModalProgresivo');
 if (btnAbrirProg) {
     btnAbrirProg.addEventListener('click', () => {
@@ -507,15 +492,11 @@ if (btnAbrirProg) {
         const content = document.getElementById('modalProgresivoContent');
         if (modal && content) {
             modal.classList.remove('hidden');
-            setTimeout(() => {
-                modal.classList.remove('opacity-0');
-                content.classList.remove('translate-y-full');
-            }, 10);
+            setTimeout(() => { modal.classList.remove('opacity-0'); content.classList.remove('translate-y-full'); }, 10);
         }
     });
 }
 
-// 2. Cerrar Modal (Botón X)
 const btnCerrarProg = document.getElementById('btnCerrarProgresivo');
 if (btnCerrarProg) {
     btnCerrarProg.addEventListener('click', () => {
@@ -529,37 +510,26 @@ if (btnCerrarProg) {
     });
 }
 
-// 3. ¡LA MAGIA DE LOS POZOS! (Escuchar cuando elige un progresivo)
 const selProgresivo = document.getElementById('modalSelProgresivo');
 if (selProgresivo) {
     selProgresivo.addEventListener('change', (e) => {
         const idProg = e.target.value;
         const contenedorPozos = document.getElementById('modalContenedorPozos');
-        
-        // MAGIA VISUAL: Le aplicamos el diseño de tu foto (Grilla de 2 columnas)
         contenedorPozos.className = 'grid grid-cols-2 gap-3 mt-4'; 
-        contenedorPozos.innerHTML = ''; // Limpiamos los cuadros anteriores
+        contenedorPozos.innerHTML = ''; 
 
         if (!idProg) return;
 
-        // Buscamos el progresivo en la memoria global
         const prog = todosLosProgresivos.find(p => p.id == idProg);
-        
         if (prog && prog.nombres_pozos) {
-            // Asegurarnos de que los pozos sean un arreglo válido
-            let pozosArray = Array.isArray(prog.nombres_pozos) ? prog.nombres_pozos : 
-                             (typeof prog.nombres_pozos === 'string' ? prog.nombres_pozos.split(',').map(s => s.trim()) : []);
+            let pozosArray = Array.isArray(prog.nombres_pozos) ? prog.nombres_pozos : (typeof prog.nombres_pozos === 'string' ? prog.nombres_pozos.split(',').map(s => s.trim()) : []);
             
             if (pozosArray.length > 0) {
                 pozosArray.forEach(pozo => {
-                    // Intentamos recuperar el valor si ya lo había llenado antes
                     let valorPrevio = '';
                     const guardado = window.progresivosTurno.find(pt => pt.id === idProg);
-                    if (guardado && guardado.valores && guardado.valores[pozo]) {
-                        valorPrevio = guardado.valores[pozo];
-                    }
+                    if (guardado && guardado.valores && guardado.valores[pozo]) valorPrevio = guardado.valores[pozo];
 
-                    // Inyectamos el formato EXACTO de tu foto
                     contenedorPozos.innerHTML += `
                         <div>
                             <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">${pozo}</label>
@@ -568,7 +538,6 @@ if (selProgresivo) {
                     `;
                 });
             } else {
-                // Si no hay pozos, quitamos la grilla para que el texto se vea normal
                 contenedorPozos.className = 'mt-4';
                 contenedorPozos.innerHTML = '<p class="text-sm text-slate-400">Este progresivo no tiene pozos configurados.</p>';
             }
@@ -576,7 +545,6 @@ if (selProgresivo) {
     });
 }
 
-// 4. Guardar Selección de Progresivo y los montos de sus pozos
 const btnGuardarProg = document.getElementById('btnGuardarProgresivo');
 if (btnGuardarProg) {
     btnGuardarProg.addEventListener('click', () => {
@@ -586,46 +554,33 @@ if (btnGuardarProg) {
         const txtUI = document.getElementById('txtProgresivoElegido');
 
         if (idElegido) {
-            // Actualizamos la UI principal
             window.progresivoSeleccionadoId = idElegido;
             txtUI.textContent = textoElegido;
             txtUI.classList.remove('text-slate-400');
             txtUI.classList.add('text-blue-700', 'font-bold');
 
-            // GUARDAMOS LOS MONTOS EN LA MEMORIA DEL TURNO
             const prog = todosLosProgresivos.find(p => p.id == idElegido);
             if (prog) {
-                let pozosArray = Array.isArray(prog.nombres_pozos) ? prog.nombres_pozos : 
-                                 (typeof prog.nombres_pozos === 'string' ? prog.nombres_pozos.split(',').map(s => s.trim()) : []);
-                
+                let pozosArray = Array.isArray(prog.nombres_pozos) ? prog.nombres_pozos : (typeof prog.nombres_pozos === 'string' ? prog.nombres_pozos.split(',').map(s => s.trim()) : []);
                 let valores = {};
                 pozosArray.forEach(pozo => {
                     const inputPozo = document.getElementById(`pozo_ini_${pozo}`);
-                    if (inputPozo && inputPozo.value !== '') {
-                        valores[pozo] = parseFloat(inputPozo.value);
-                    }
+                    if (inputPozo && inputPozo.value !== '') valores[pozo] = parseFloat(inputPozo.value);
                 });
 
-                // Lo metemos al arreglo global progresivosTurno
-                // AQUÍ ESTÁN LOS CAMBIOS 2 y 3: Guardar usando window.progresivosTurno
                 const index = window.progresivosTurno.findIndex(pt => pt.id === idElegido);
-                if (index >= 0) {
-                    window.progresivosTurno[index].valores = valores;
-                } else {
-                    window.progresivosTurno.push({ id: idElegido, valores: valores });
-                }
+                if (index >= 0) window.progresivosTurno[index].valores = valores;
+                else window.progresivosTurno.push({ id: idElegido, valores: valores });
+                
                 localStorage.setItem('progresivos_turno', JSON.stringify(window.progresivosTurno));
             }
-
         } else {
-            // Si elige "Ninguno"
             window.progresivoSeleccionadoId = null;
             txtUI.textContent = "Ninguno configurado";
             txtUI.classList.add('text-slate-400');
             txtUI.classList.remove('text-blue-700', 'font-bold');
         }
 
-        // Cerramos el modal simulando clic en la X
         if (btnCerrarProg) btnCerrarProg.click();
     });
 }

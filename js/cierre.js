@@ -271,7 +271,7 @@ document.getElementById('btnConfirmarCierre').addEventListener('click', async ()
         localStorage.removeItem('turno_fin');
         localStorage.removeItem('progresivos_turno'); 
 
-        alert('¡Turno cerrado y guardado correctamente! Eres la mejor espía 🕵️‍♀️');
+        alert('¡Turno cerrado y guardado correctamente!');
         window.location.href = 'dashboard.html';
 
     } catch (error) {
