@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Auditoría de Imagen</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-slate-100 text-slate-800 antialiased min-h-screen flex flex-col">
+
+  <header class="bg-slate-900 text-white px-6 py-5 shadow-md flex items-center gap-4">
+    <button onclick="window.location.href='admin.html'" class="bg-slate-800 p-2 rounded-lg text-slate-300 hover:text-white">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+    </button>
+    <div>
+      <h1 class="text-sm text-pink-400 font-bold uppercase tracking-wider">Recursos Humanos</h1>
+      <h2 class="text-xl font-black leading-tight">Auditoría de Imagen y Presentación</h2>
+    </div>
+  </header>
+
+  <main class="p-6 max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-2 gap-6">
+    
+    <!-- COLUMNA 1: FORMULARIO DE EVALUACIÓN -->
+    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+      <h3 class="font-black text-lg text-slate-800 border-b border-slate-100 pb-3 mb-4">Nueva Evaluación Diaria</h3>
+      
+      <div class="space-y-4">
+        <div class="grid grid-cols-2 gap-4">
+            <div>
+                <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Anfitriona</label>
+                <select id="selAnfitriona" class="w-full border border-slate-200 rounded-xl p-2.5 outline-none focus:border-pink-500 text-sm font-bold"></select>
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Fecha</label>
+                <input type="date" id="evalFecha" class="w-full border border-slate-200 rounded-xl p-2.5 outline-none focus:border-pink-500 text-sm font-bold">
+            </div>
+        </div>
+
+        <!-- BLOQUE DE FOTO ACTUALIZADO -->
+        <div>
+            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Foto de Referencia (Opcional)</label>
+            <input type="file" id="evalFoto" accept="image/*" class="w-full border border-slate-200 rounded-xl p-2 text-sm mb-3">
+            
+            <!-- Marco de Vista Previa (Se oculta si no hay foto) -->
+            <div id="previewContainer" class="hidden relative w-full rounded-xl overflow-hidden border border-slate-200 bg-slate-100 flex items-center justify-center shadow-inner">
+                <img id="previewImg" src="" alt="Vista previa" class="max-h-80 w-full object-contain">
+                <button id="btnQuitarFoto" class="absolute top-2 right-2 bg-slate-900/60 text-white rounded-full p-1.5 hover:bg-red-500 transition-colors shadow-md" title="Quitar foto">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+        </div>
+
+        <div id="cajaCriterios" class="space-y-3 mt-4">
+            <!-- JS inyectará los sliders de 5 estrellas aquí -->
+        </div>
+
+        <div>
+            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Observaciones / Comentarios</label>
+            <textarea id="evalComentario" rows="2" class="w-full border border-slate-200 rounded-xl p-2.5 outline-none focus:border-pink-500 text-sm" placeholder="Ej: Faltó arreglarse las uñas de la mano derecha..."></textarea>
+        </div>
+
+        <button id="btnGuardarEval" class="w-full bg-pink-600 hover:bg-pink-700 text-white font-black py-3 rounded-xl shadow-md transition-all active:scale-95">
+            Guardar Evaluación
+        </button>
+      </div>
+    </div>
+
+    <!-- COLUMNA 2: DIAGNÓSTICO Y ÁREAS DE MEJORA -->
+    <div class="space-y-6">
+        <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+            <div class="flex justify-between items-center border-b border-slate-100 pb-3 mb-4">
+                <h3 class="font-black text-lg text-slate-800">Diagnóstico de Personal</h3>
+                <select id="selAnfitrionaDiag" class="border border-slate-200 rounded-lg p-1.5 outline-none text-sm font-bold bg-slate-50"></select>
+            </div>
+            
+            <p class="text-xs text-slate-500 mb-4">Promedio de los últimos 15 días evaluados.</p>
+            
+            <div id="diagPromedios" class="grid grid-cols-2 gap-3 mb-4">
+                <!-- JS inyectará promedios -->
+            </div>
+
+            <div class="bg-red-50 p-4 rounded-xl border border-red-100">
+                <h4 class="text-xs font-black text-red-600 uppercase tracking-wider mb-2">🚨 Alertas de Mejora Obligatoria</h4>
+                <ul id="diagAlertas" class="space-y-2 text-sm text-red-800 font-medium">
+                    <!-- JS inyectará alertas -->
+                </ul>
+            </div>
+        </div>
+    </div>
+
+  </main>
+
+  <script src="js/supabase.js"></script>
+  <script src="js/evaluaciones.js"></script>
+</body>
+</html>
