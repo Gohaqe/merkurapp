@@ -70,8 +70,13 @@
     <div class="space-y-6">
         <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
             <div class="flex justify-between items-center border-b border-slate-100 pb-3 mb-4">
-                <h3 class="font-black text-lg text-slate-800">Diagnóstico de Personal</h3>
-                <select id="selAnfitrionaDiag" class="border border-slate-200 rounded-lg p-1.5 outline-none text-sm font-bold bg-slate-50"></select>
+                <h3 class="font-black text-lg text-slate-800">Diagnóstico</h3>
+                <div class="flex items-center gap-2">
+                    <button id="btnVerHistorial" class="bg-indigo-50 text-indigo-600 border border-indigo-200 px-3 py-1.5 rounded-lg text-xs font-black hover:bg-indigo-100 transition-colors shadow-sm whitespace-nowrap">
+                        📸 Ver Fotos
+                    </button>
+                    <select id="selAnfitrionaDiag" class="border border-slate-200 rounded-lg p-1.5 outline-none text-sm font-bold bg-slate-50"></select>
+                </div>
             </div>
             
             <p class="text-xs text-slate-500 mb-4">Promedio de los últimos 15 días evaluados.</p>
@@ -85,6 +90,25 @@
                 <ul id="diagAlertas" class="space-y-2 text-sm text-red-800 font-medium">
                     <!-- JS inyectará alertas -->
                 </ul>
+            </div>
+        </div>
+    </div>
+    <!-- MODAL HISTORIAL INMUTABLE (EVIDENCIA) -->
+    <div id="modalHistorial" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 backdrop-blur-sm hidden opacity-0 transition-opacity duration-300">
+        <div id="contentHistorial" class="bg-white w-11/12 max-w-5xl rounded-2xl shadow-2xl flex flex-col max-h-[90vh] transform translate-y-full transition-transform duration-300">
+            <!-- Cabecera -->
+            <div class="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-slate-50 rounded-t-2xl">
+                <div>
+                    <h3 class="font-black text-xl text-slate-800" id="historialTitulo">Historial de Evaluaciones</h3>
+                    <p class="text-xs font-bold text-red-500 uppercase mt-0.5">🔒 Evidencia inmutable (No editable)</p>
+                </div>
+                <button onclick="cerrarHistorial()" class="bg-slate-200 hover:bg-red-500 hover:text-white text-slate-500 rounded-full p-2 transition-colors">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <!-- Cuerpo (Tarjetas) -->
+            <div id="contenedorTarjetasHistorial" class="p-6 overflow-y-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 bg-slate-100">
+                <!-- JS inyectará las tarjetas aquí -->
             </div>
         </div>
     </div>
