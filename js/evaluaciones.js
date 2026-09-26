@@ -8,13 +8,13 @@ if (!userId || (localStorage.getItem('usuario_cargo') !== 'Admin' && localStorag
 const criterios = [
     { id: 'peinado', nombre: '💇‍♀️ Peinado y Cabello' },
     { id: 'maquillaje', nombre: '💄 Maquillaje y Rostro' },
-    { id: 'uniforme', nombre: '👗 Uniforme y Planchado' },
-    { id: 'manos', nombre: '💅 Cuidado de Manos/Uñas' },
+    { id: 'uniforme', nombre: '👗 Uniforme / Planchado' },
+    { id: 'manos', nombre: '💅 Cuidado de Manos' },
     { id: 'calzado', nombre: '👠 Calzado Limpio' }
 ];
 
 document.addEventListener('DOMContentLoaded', async () => {
-    // Truco para forzar la zona horaria local (Perú)
+    // Truco de Zona Horaria Perú (-5)
     const fechaLocal = new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().split('T')[0];
     document.getElementById('evalFecha').value = fechaLocal;
     
@@ -22,6 +22,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     await cargarAnfitrionas();
     
     document.getElementById('selAnfitrionaDiag').addEventListener('change', generarDiagnostico);
+    document.getElementById('btnVerHistorial').addEventListener('click', abrirHistorial);
 });
 
 function dibujarCriterios() {
@@ -42,18 +43,21 @@ function dibujarCriterios() {
     });
 }
 
-// Convertir número a estrellas visuales (ej: 3.5 -> ⭐⭐⭐✨)
-window.actualizarEstrellas = function(id) {
-    const val = parseFloat(document.getElementById(`val_${id}`).value);
-    document.getElementById(`num_${id}`).textContent = val.toFixed(1);
-    
+// Dibujador de estrellas universal
+window.generarTextoEstrellas = function(val) {
     let estrellas = '';
     for(let i=1; i<=5; i++) {
         if (val >= i) estrellas += '⭐';
-        else if (val >= i - 0.5) estrellas += '✨'; // Media estrella
+        else if (val >= i - 0.5) estrellas += '✨'; 
         else estrellas += '🌑';
     }
-    document.getElementById(`txt_${id}`).textContent = estrellas;
+    return estrellas;
+};
+
+window.actualizarEstrellas = function(id) {
+    const val = parseFloat(document.getElementById(`val_${id}`).value);
+    document.getElementById(`num_${id}`).textContent = val.toFixed(1);
+    document.getElementById(`txt_${id}`).textContent = generarTextoEstrellas(val);
 };
 
 async function cargarAnfitrionas() {
@@ -72,12 +76,48 @@ async function cargarAnfitrionas() {
 }
 
 // ==========================================
-// GUARDAR EVALUACIÓN Y FOTO
+// VISUALIZADOR DE FOTO EN TIEMPO REAL
+// ==========================================
+const inputFoto = document.getElementById('evalFoto');
+const previewContainer = document.getElementById('previewContainer');
+const previewImg = document.getElementById('previewImg');
+
+if (inputFoto) {
+    inputFoto.addEventListener('change', function() {
+        const file = this.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                previewImg.src = e.target.result;
+                previewContainer.classList.remove('hidden');
+            }
+            reader.readAsDataURL(file);
+        } else {
+            limpiarVistaPrevia();
+        }
+    });
+}
+
+if (document.getElementById('btnQuitarFoto')) {
+    document.getElementById('btnQuitarFoto').addEventListener('click', function(e) {
+        e.preventDefault();
+        limpiarVistaPrevia();
+    });
+}
+
+window.limpiarVistaPrevia = function() {
+    if(inputFoto) inputFoto.value = ''; 
+    if(previewContainer) previewContainer.classList.add('hidden');
+    if(previewImg) previewImg.src = '';
+};
+
+// ==========================================
+// GUARDAR EVALUACIÓN
 // ==========================================
 document.getElementById('btnGuardarEval').addEventListener('click', async () => {
     const anfitrionaId = document.getElementById('selAnfitriona').value;
     const fecha = document.getElementById('evalFecha').value;
-    const archivoFoto = document.getElementById('evalFoto').files[0];
+    const archivoFoto = inputFoto ? inputFoto.files[0] : null;
     const comentario = document.getElementById('evalComentario').value.trim();
     
     if(!anfitrionaId) { alert('Selecciona una anfitriona'); return; }
@@ -89,20 +129,16 @@ document.getElementById('btnGuardarEval').addEventListener('click', async () => 
     try {
         let fotoUrl = null;
 
-        // 1. Subir Foto a Supabase Storage (Si hay foto)
         if (archivoFoto) {
             const fileExt = archivoFoto.name.split('.').pop();
             const fileName = `${anfitrionaId}_${Date.now()}.${fileExt}`;
-            const { data: uploadData, error: uploadError } = await supabaseClient.storage.from('fotos_evaluacion').upload(fileName, archivoFoto);
-            
+            const { error: uploadError } = await supabaseClient.storage.from('fotos_evaluacion').upload(fileName, archivoFoto);
             if (uploadError) throw uploadError;
             
-            // Obtener link público de la foto
             const { data: urlData } = supabaseClient.storage.from('fotos_evaluacion').getPublicUrl(fileName);
             fotoUrl = urlData.publicUrl;
         }
 
-        // 2. Guardar las notas numéricas en la base de datos
         const payload = {
             admin_id: userId,
             anfitriona_id: anfitrionaId,
@@ -119,14 +155,12 @@ document.getElementById('btnGuardarEval').addEventListener('click', async () => 
         const { error } = await supabaseClient.from('evaluaciones').insert([payload]);
         if (error) throw error;
 
-        alert('✅ Evaluación guardada con éxito');
+        alert('✅ Evaluación guardada con éxito (Inmutable)');
         
-        // Limpiar
         document.getElementById('evalComentario').value = '';
-        document.getElementById('evalFoto').value = '';
-        limpiarVistaPrevia(); // <--- AGREGAR ESTO AQUÍ
-        dibujarCriterios(); // Resetear estrellas a 5
-        generarDiagnostico(); // Actualizar el panel de la derecha
+        limpiarVistaPrevia(); 
+        dibujarCriterios(); 
+        generarDiagnostico(); 
 
     } catch (err) {
         alert('Error: ' + err.message);
@@ -137,13 +171,12 @@ document.getElementById('btnGuardarEval').addEventListener('click', async () => 
 });
 
 // ==========================================
-// EL MOTOR DE DIAGNÓSTICO (INTELIGENCIA DE MEJORA)
+// EL MOTOR DE DIAGNÓSTICO (MEJORA)
 // ==========================================
 async function generarDiagnostico() {
     const anfId = document.getElementById('selAnfitrionaDiag').value;
     if(!anfId) return;
 
-    // Buscar evaluaciones de los últimos 15 días (Respetando hora Perú)
     const hoy = new Date();
     const hace15 = new Date(); hace15.setDate(hoy.getDate() - 15);
     const fechaHace15Str = new Date(hace15.getTime() - hace15.getTimezoneOffset() * 60000).toISOString().split('T')[0];
@@ -162,7 +195,6 @@ async function generarDiagnostico() {
         return;
     }
 
-    // Calcular matemática de promedios
     let sumas = { peinado: 0, maquillaje: 0, uniforme: 0, manos: 0, calzado: 0 };
     evals.forEach(e => {
         sumas.peinado += e.peinado; sumas.maquillaje += e.maquillaje;
@@ -176,8 +208,6 @@ async function generarDiagnostico() {
     criterios.forEach(c => {
         let prom = sumas[c.id] / qty;
         promedios[c.id] = prom;
-        
-        // Colores según la nota (Rojo malo, Amarillo regular, Verde bueno)
         let colorClass = prom >= 4 ? 'text-emerald-600 bg-emerald-50' : (prom >= 3 ? 'text-yellow-600 bg-yellow-50' : 'text-red-600 bg-red-50');
         
         cajaPromedios.innerHTML += `
@@ -188,67 +218,105 @@ async function generarDiagnostico() {
         `;
     });
 
-    // GENERAR CONSEJOS DE MEJORA
     cajaAlertas.innerHTML = '';
     let tieneAlertas = false;
 
-    if (promedios.maquillaje < 3.5) {
-        cajaAlertas.innerHTML += '<li>❌ <b>Maquillaje:</b> Su puntaje constante es bajo. Indicarle que mejore el delineado, aplique base uniforme y use labial acorde al estándar.</li>';
-        tieneAlertas = true;
-    }
-    if (promedios.peinado < 3.5) {
-        cajaAlertas.innerHTML += '<li>❌ <b>Cabello:</b> Hay problemas recurrentes de frizz o peinados sueltos. Exigir uso de gel, laca o red para el cabello.</li>';
-        tieneAlertas = true;
-    }
-    if (promedios.uniforme < 3.5) {
-        cajaAlertas.innerHTML += '<li>❌ <b>Uniforme:</b> Está presentándose con ropa arrugada, manchada o desteñida. Requiere revisión de su dotación de uniforme.</li>';
-        tieneAlertas = true;
-    }
-    if (promedios.manos < 3.5) {
-        cajaAlertas.innerHTML += '<li>❌ <b>Manos:</b> Su esmaltado está dañado frecuentemente. Recordarle el estándar corporativo de manicura.</li>';
-        tieneAlertas = true;
-    }
-    if (promedios.calzado < 3.5) {
-        cajaAlertas.innerHTML += '<li>❌ <b>Zapatos:</b> Calzado sucio o no estándar.</li>';
-        tieneAlertas = true;
-    }
+    if (promedios.maquillaje < 3.5) { cajaAlertas.innerHTML += '<li>❌ <b>Maquillaje:</b> Puntaje constante bajo. Falta arreglo facial estándar.</li>'; tieneAlertas = true; }
+    if (promedios.peinado < 3.5) { cajaAlertas.innerHTML += '<li>❌ <b>Cabello:</b> Problemas recurrentes de frizz o cabello suelto.</li>'; tieneAlertas = true; }
+    if (promedios.uniforme < 3.5) { cajaAlertas.innerHTML += '<li>❌ <b>Uniforme:</b> Se presenta arrugada o sin el uniforme completo.</li>'; tieneAlertas = true; }
+    if (promedios.manos < 3.5) { cajaAlertas.innerHTML += '<li>❌ <b>Manos/Uñas:</b> Esmaltado dañado o falta de higiene en manos.</li>'; tieneAlertas = true; }
+    if (promedios.calzado < 3.5) { cajaAlertas.innerHTML += '<li>❌ <b>Zapatos:</b> Calzado sucio o no permitido.</li>'; tieneAlertas = true; }
 
-    if (!tieneAlertas) {
-        cajaAlertas.innerHTML = '<li class="text-emerald-600">✨ ¡Impecable! Sus promedios son excelentes. No requiere mejoras urgentes.</li>';
-    }
+    if (!tieneAlertas) cajaAlertas.innerHTML = '<li class="text-emerald-600 font-bold">✨ ¡Impecable! No requiere mejoras urgentes.</li>';
 }
-// ==========================================
-// VISUALIZADOR DE FOTO EN TIEMPO REAL
-// ==========================================
-const inputFoto = document.getElementById('evalFoto');
-const previewContainer = document.getElementById('previewContainer');
-const previewImg = document.getElementById('previewImg');
-const btnQuitarFoto = document.getElementById('btnQuitarFoto');
 
-// 1. Cuando se elige una foto, mostrarla inmediatamente
-inputFoto.addEventListener('change', function() {
-    const file = this.files[0];
-    if (file) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            previewImg.src = e.target.result;
-            previewContainer.classList.remove('hidden');
-        }
-        reader.readAsDataURL(file);
-    } else {
-        limpiarVistaPrevia();
+// ==========================================
+// MODAL DE HISTORIAL (EVIDENCIA INMUTABLE)
+// ==========================================
+async function abrirHistorial() {
+    const selector = document.getElementById('selAnfitrionaDiag');
+    const anfId = selector.value;
+    const nombreAnf = selector.options[selector.selectedIndex]?.text;
+    
+    if(!anfId) return;
+
+    document.getElementById('historialTitulo').textContent = `Auditorías de: ${nombreAnf}`;
+    const contenedor = document.getElementById('contenedorTarjetasHistorial');
+    contenedor.innerHTML = '<p class="text-center text-slate-500 py-10 col-span-full">Recuperando archivos de la bóveda...</p>';
+
+    // Mostrar Modal
+    const modal = document.getElementById('modalHistorial');
+    const content = document.getElementById('contentHistorial');
+    modal.classList.remove('hidden');
+    setTimeout(() => { modal.classList.remove('opacity-0'); content.classList.remove('translate-y-full'); }, 10);
+
+    // Traer TODO el historial ordenado de más nuevo a más viejo
+    const { data: historial } = await supabaseClient.from('evaluaciones')
+        .select('*')
+        .eq('anfitriona_id', anfId)
+        .order('fecha', { ascending: false });
+
+    contenedor.innerHTML = '';
+
+    if (!historial || historial.length === 0) {
+        contenedor.innerHTML = '<p class="text-center text-slate-500 py-10 col-span-full font-bold">No hay ninguna evaluación registrada.</p>';
+        return;
     }
-});
 
-// 2. Botón de la 'X' para quitar la foto si salió mal
-btnQuitarFoto.addEventListener('click', function(e) {
-    e.preventDefault();
-    limpiarVistaPrevia();
-});
+    historial.forEach(e => {
+        const fechaF = new Date(e.fecha).toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        const promDia = (e.peinado + e.maquillaje + e.uniforme + e.manos + e.calzado) / 5;
+        
+        let colorNota = promDia >= 4 ? 'bg-emerald-500' : (promDia >= 3 ? 'bg-yellow-500' : 'bg-red-500');
 
-// Función para limpiar el marco
-window.limpiarVistaPrevia = function() {
-    inputFoto.value = ''; // Borra el archivo
-    previewContainer.classList.add('hidden');
-    previewImg.src = '';
+        // Si hay foto, la muestra, si no, muestra un texto
+        let fotoHtml = e.foto_url 
+            ? `<a href="${e.foto_url}" target="_blank"><img src="${e.foto_url}" class="w-full h-56 object-cover hover:opacity-90 transition-opacity"></a>` 
+            : `<div class="w-full h-24 bg-slate-200 flex items-center justify-center text-slate-400 text-xs font-bold">📷 Sin Fotografía</div>`;
+
+        contenedor.innerHTML += `
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col hover:shadow-md transition-shadow">
+                <div class="px-4 py-3 bg-slate-800 text-white flex justify-between items-center">
+                    <span class="font-bold text-xs uppercase tracking-wide">${fechaF}</span>
+                    <span class="${colorNota} text-white text-[10px] font-black px-2 py-1 rounded-full shadow-inner">Nota: ${promDia.toFixed(1)}</span>
+                </div>
+                ${fotoHtml}
+                <div class="p-5 space-y-3 flex-1 bg-slate-50">
+                    <div class="flex justify-between items-center text-xs border-b border-slate-200 pb-1.5">
+                        <span class="font-bold text-slate-600">Peinado</span>
+                        <span class="tracking-widest">${generarTextoEstrellas(e.peinado)}</span>
+                    </div>
+                    <div class="flex justify-between items-center text-xs border-b border-slate-200 pb-1.5">
+                        <span class="font-bold text-slate-600">Maquillaje</span>
+                        <span class="tracking-widest">${generarTextoEstrellas(e.maquillaje)}</span>
+                    </div>
+                    <div class="flex justify-between items-center text-xs border-b border-slate-200 pb-1.5">
+                        <span class="font-bold text-slate-600">Uniforme</span>
+                        <span class="tracking-widest">${generarTextoEstrellas(e.uniforme)}</span>
+                    </div>
+                    <div class="flex justify-between items-center text-xs border-b border-slate-200 pb-1.5">
+                        <span class="font-bold text-slate-600">Manos/Uñas</span>
+                        <span class="tracking-widest">${generarTextoEstrellas(e.manos)}</span>
+                    </div>
+                    <div class="flex justify-between items-center text-xs border-b border-slate-200 pb-1.5">
+                        <span class="font-bold text-slate-600">Calzado</span>
+                        <span class="tracking-widest">${generarTextoEstrellas(e.calzado)}</span>
+                    </div>
+                    
+                    <div class="pt-2">
+                        <span class="block text-[10px] font-black text-indigo-400 uppercase mb-1">Comentario del Auditor:</span>
+                        <p class="text-xs text-slate-700 font-medium italic bg-white p-2 rounded border border-slate-200">${e.comentario || 'Sin comentarios adicionales.'}</p>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+}
+
+window.cerrarHistorial = function() {
+    const modal = document.getElementById('modalHistorial');
+    const content = document.getElementById('contentHistorial');
+    modal.classList.add('opacity-0');
+    content.classList.add('translate-y-full');
+    setTimeout(() => modal.classList.add('hidden'), 300);
 };
