@@ -37,12 +37,10 @@
             </div>
         </div>
 
-        <!-- BLOQUE DE FOTO ACTUALIZADO -->
         <div>
             <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Foto de Referencia (Opcional)</label>
             <input type="file" id="evalFoto" accept="image/*" class="w-full border border-slate-200 rounded-xl p-2 text-sm mb-3">
             
-            <!-- Marco de Vista Previa (Se oculta si no hay foto) -->
             <div id="previewContainer" class="hidden relative w-full rounded-xl overflow-hidden border border-slate-200 bg-slate-100 flex items-center justify-center shadow-inner">
                 <img id="previewImg" src="" alt="Vista previa" class="max-h-80 w-full object-contain">
                 <button id="btnQuitarFoto" class="absolute top-2 right-2 bg-slate-900/60 text-white rounded-full p-1.5 hover:bg-red-500 transition-colors shadow-md" title="Quitar foto">
@@ -52,12 +50,12 @@
         </div>
 
         <div id="cajaCriterios" class="space-y-3 mt-4">
-            <!-- JS inyectará los sliders de 5 estrellas aquí -->
+            <!-- JS inyectará las estrellas aquí -->
         </div>
 
         <div>
             <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Observaciones / Comentarios</label>
-            <textarea id="evalComentario" rows="2" class="w-full border border-slate-200 rounded-xl p-2.5 outline-none focus:border-pink-500 text-sm" placeholder="Ej: Faltó arreglarse las uñas de la mano derecha..."></textarea>
+            <textarea id="evalComentario" rows="2" class="w-full border border-slate-200 rounded-xl p-2.5 outline-none focus:border-pink-500 text-sm" placeholder="Ej: Faltó arreglarse las uñas..."></textarea>
         </div>
 
         <button id="btnGuardarEval" class="w-full bg-pink-600 hover:bg-pink-700 text-white font-black py-3 rounded-xl shadow-md transition-all active:scale-95">
@@ -66,37 +64,24 @@
       </div>
     </div>
 
-    <!-- COLUMNA 2: DIAGNÓSTICO Y ÁREAS DE MEJORA -->
+    <!-- COLUMNA 2: RESUMEN MENSUAL Y DIAGNÓSTICO -->
     <div class="space-y-6">
         <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-            <div class="flex justify-between items-center border-b border-slate-100 pb-3 mb-4">
-                <h3 class="font-black text-lg text-slate-800">Diagnóstico</h3>
-                <div class="flex items-center gap-2">
-                    <button id="btnVerHistorial" class="bg-indigo-50 text-indigo-600 border border-indigo-200 px-3 py-1.5 rounded-lg text-xs font-black hover:bg-indigo-100 transition-colors shadow-sm whitespace-nowrap">
-                        📸 Ver Fotos
-                    </button>
-                    <select id="selAnfitrionaDiag" class="border border-slate-200 rounded-lg p-1.5 outline-none text-sm font-bold bg-slate-50"></select>
-                </div>
+            <div class="border-b border-slate-100 pb-3 mb-4">
+                <h3 class="font-black text-lg text-slate-800">Resumen del Mes Actual</h3>
+                <p class="text-xs text-slate-500 mt-1">Promedios acumulados. Los datos se reinician automáticamente cada día 1.</p>
             </div>
             
-            <p class="text-xs text-slate-500 mb-4">Promedio de los últimos 15 días evaluados.</p>
-            
-            <div id="diagPromedios" class="grid grid-cols-2 gap-3 mb-4">
-                <!-- JS inyectará promedios -->
-            </div>
-
-            <div class="bg-red-50 p-4 rounded-xl border border-red-100">
-                <h4 class="text-xs font-black text-red-600 uppercase tracking-wider mb-2">🚨 Alertas de Mejora Obligatoria</h4>
-                <ul id="diagAlertas" class="space-y-2 text-sm text-red-800 font-medium">
-                    <!-- JS inyectará alertas -->
-                </ul>
+            <!-- Lista dinámica generada por JS -->
+            <div id="listaDiagnosticos" class="space-y-3 max-h-[600px] overflow-y-auto pr-2">
+                <p class="text-sm text-slate-400">Cargando datos...</p>
             </div>
         </div>
     </div>
+
     <!-- MODAL HISTORIAL INMUTABLE (EVIDENCIA) -->
     <div id="modalHistorial" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 backdrop-blur-sm hidden opacity-0 transition-opacity duration-300">
         <div id="contentHistorial" class="bg-white w-11/12 max-w-5xl rounded-2xl shadow-2xl flex flex-col max-h-[90vh] transform translate-y-full transition-transform duration-300">
-            <!-- Cabecera -->
             <div class="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-slate-50 rounded-t-2xl">
                 <div>
                     <h3 class="font-black text-xl text-slate-800" id="historialTitulo">Historial de Evaluaciones</h3>
@@ -106,7 +91,6 @@
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                 </button>
             </div>
-            <!-- Cuerpo (Tarjetas) -->
             <div id="contenedorTarjetasHistorial" class="p-6 overflow-y-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 bg-slate-100">
                 <!-- JS inyectará las tarjetas aquí -->
             </div>
