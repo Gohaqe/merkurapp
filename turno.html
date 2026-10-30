@@ -53,20 +53,27 @@
         </ul>
       </div>
 
-      <!-- CONTENEDOR DE HORAS Y BOTÓN (Oculto hasta elegir sala) -->
+      <!-- CONTENEDOR DE FECHA, HORAS Y BOTÓN (Oculto hasta elegir sala) -->
       <div id="bloqueHorasYBtn" class="hidden space-y-4 pt-2">
+        
+        <!-- NUEVO: CAMPO DE FECHA -->
+        <div>
+          <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Fecha del Turno</label>
+          <input type="date" id="turnoFecha" class="w-full border rounded-xl p-3 bg-slate-50 outline-none focus:border-blue-500 transition-colors">
+        </div>
+
         <div class="grid grid-cols-2 gap-4">
           <div>
             <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Hora Inicio</label>
-            <input type="time" id="turnoIni" value="17:00" class="w-full border rounded-xl p-3 bg-slate-50 outline-none">
+            <input type="time" id="turnoIni" value="17:00" class="w-full border rounded-xl p-3 bg-slate-50 outline-none focus:border-blue-500 transition-colors">
           </div>
           <div>
             <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Hora Fin</label>
-            <input type="time" id="turnoFin" value="22:00" class="w-full border rounded-xl p-3 bg-slate-50 outline-none">
+            <input type="time" id="turnoFin" value="22:00" class="w-full border rounded-xl p-3 bg-slate-50 outline-none focus:border-blue-500 transition-colors">
           </div>
         </div>
         
-        <button id="btnIniciarTurno" class="w-full bg-slate-800 text-white font-bold py-3 rounded-xl shadow-md active:scale-95 transition-all">
+        <button id="btnIniciarTurno" class="w-full bg-slate-800 text-white font-bold py-3 rounded-xl shadow-md active:scale-95 transition-all mt-2">
           Iniciar mi Turno
         </button>
       </div>
