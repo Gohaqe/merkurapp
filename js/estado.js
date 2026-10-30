@@ -23,6 +23,13 @@ let asignacionesEnMemoria = [];
 // INICIALIZACIÓN Y CARGA DE DATOS
 // ==========================================
 document.addEventListener('DOMContentLoaded', async () => {
+    
+    // Pre-llenar automáticamente la fecha con el día de hoy (Hora Perú)
+    const inputFecha = document.getElementById('turnoFecha');
+    if (inputFecha) {
+        inputFecha.value = new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().split('T')[0];
+    }
+
     await cargarSelectores();
 
     if (reporteIdActual) {
@@ -74,7 +81,6 @@ async function cargarSelectores() {
 }
 
 async function cargarAsignacionesPrevias() {
-    // 1. CARGAR DATOS GENERALES DEL REPORTE (Aforo, Comentarios, Progresivos)
     const { data: rep } = await supabaseClient
         .from('reportes')
         .select('aforo, top_juegos, com_produc, com_sala, com_competencia, progresivos_iniciales, progresivos_finales, estado')
@@ -82,7 +88,6 @@ async function cargarAsignacionesPrevias() {
         .single();
 
     if (rep) {
-        // Llenar variables globales para que los otros archivos las lean
         window.progresivosTurno = rep.progresivos_iniciales || [];
         localStorage.setItem('progresivos_turno', JSON.stringify(window.progresivosTurno));
 
@@ -94,7 +99,6 @@ async function cargarAsignacionesPrevias() {
             window.juegosRanking = [];
         }
 
-        // Llenar UI del Cierre
         if (rep.aforo !== null) {
             const sliderAforo = document.getElementById('aforoTurno');
             const txtAforo = document.getElementById('txtAforoPorcentaje');
@@ -111,7 +115,6 @@ async function cargarAsignacionesPrevias() {
         if (document.getElementById('comSala')) document.getElementById('comSala').value = rep.com_sala || '';
         if (document.getElementById('comCompetencia')) document.getElementById('comCompetencia').value = rep.com_competencia || '';
 
-        // Cambiar botones si estamos Editando
         if (rep.estado === 'Completado') {
             const btnFinalizarTurno = document.getElementById('btnFinalizarTurno');
             if (btnFinalizarTurno) btnFinalizarTurno.innerText = 'Actualizar Turno y Salir';
@@ -121,7 +124,6 @@ async function cargarAsignacionesPrevias() {
         }
     }
 
-    // 2. CARGAR MÁQUINAS ASIGNADAS
     const { data } = await supabaseClient
         .from('reporte_asignaciones')
         .select(`id, cantidad, juego_id, gabinete_id, progresivo_id, denominaciones, ubicacion, juegos(juego), gabinetes(modelo)`)
@@ -203,12 +205,14 @@ const btnIniciarTurno = document.getElementById('btnIniciarTurno');
 if(btnIniciarTurno){
     btnIniciarTurno.addEventListener('click', async () => {
         const salaId = document.getElementById('selSala').value;
+        const fecha = document.getElementById('turnoFecha').value; // <--- SE LEE LA FECHA
         const ini = document.getElementById('turnoIni').value;
         const fin = document.getElementById('turnoFin').value;
         const usuarioId = localStorage.getItem('usuario_id');
 
-        if (!salaId || !ini || !fin) {
-            alert('Por favor selecciona la sala y el horario del turno.');
+        // <--- VALIDACIÓN INCLUYENDO LA FECHA
+        if (!salaId || !fecha || !ini || !fin) {
+            alert('Por favor selecciona la sala, la fecha y el horario del turno.');
             return;
         }
 
@@ -221,6 +225,7 @@ if(btnIniciarTurno){
             .insert([{
                 usuario_id: usuarioId,
                 sala_id: salaId,
+                fecha: fecha, // <--- SE GUARDA EXACTAMENTE LA FECHA MANUAL
                 turno_ini: ini + ':00',
                 turno_fin: fin + ':00'
             }]).select().single();
