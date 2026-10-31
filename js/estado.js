@@ -3,8 +3,9 @@
 // ==========================================
 window.todasLasDenominaciones = []; 
 window.progresivosTurno = JSON.parse(localStorage.getItem('progresivos_turno')) || [];
-window.juegosRanking = []; // Para compartir con cierre.js
-window.valoresCierreProgresivos = {}; // Para compartir con cierre.js
+window.juegosRanking = []; 
+window.valoresCierreProgresivos = {}; 
+window.fechasTurno = []; 
 
 let reporteIdActual = localStorage.getItem('turno_activo_id');
 let turnoInicioLocal = localStorage.getItem('turno_ini');
@@ -24,10 +25,30 @@ let asignacionesEnMemoria = [];
 // ==========================================
 document.addEventListener('DOMContentLoaded', async () => {
     
-    // Pre-llenar automáticamente la fecha con el día de hoy (Hora Perú)
-    const inputFecha = document.getElementById('turnoFecha');
-    if (inputFecha) {
-        inputFecha.value = new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().split('T')[0];
+    // Lógica del Súper Calendario (Flatpickr)
+    const inputMultiFecha = document.getElementById('inputMultiFecha');
+    
+    if (inputMultiFecha) {
+        const hoyStr = new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().split('T')[0];
+        window.fechasTurno = [hoyStr]; // Inicia con hoy por defecto
+
+        flatpickr(inputMultiFecha, {
+            mode: "multiple",
+            locale: "es",           // Calendario en Español
+            dateFormat: "Y-m-d",    // Formato interno para la Base de Datos
+            altInput: true,         // Crea un texto visual bonito
+            altFormat: "d M",       // Formato visual (Ej: "25 Oct")
+            defaultDate: [hoyStr],
+            conjunction: " • ",     // Pone un puntito entre cada fecha (Ej: 25 Oct • 26 Oct)
+            onChange: function(selectedDates, dateStr, instance) {
+                // Cada vez que tocan una fecha, se actualiza nuestra lista
+                if (dateStr) {
+                    window.fechasTurno = dateStr.split(' • '); 
+                } else {
+                    window.fechasTurno = [];
+                }
+            }
+        });
     }
 
     await cargarSelectores();
@@ -81,23 +102,15 @@ async function cargarSelectores() {
 }
 
 async function cargarAsignacionesPrevias() {
-    const { data: rep } = await supabaseClient
-        .from('reportes')
-        .select('aforo, top_juegos, com_produc, com_sala, com_competencia, progresivos_iniciales, progresivos_finales, estado')
-        .eq('id', reporteIdActual)
-        .single();
+    const { data: rep } = await supabaseClient.from('reportes').select('aforo, top_juegos, com_produc, com_sala, com_competencia, progresivos_iniciales, progresivos_finales, estado').eq('id', reporteIdActual).single();
 
     if (rep) {
         window.progresivosTurno = rep.progresivos_iniciales || [];
         localStorage.setItem('progresivos_turno', JSON.stringify(window.progresivosTurno));
-
         window.valoresCierreProgresivos = rep.progresivos_finales || {};
         
-        if (rep.top_juegos && rep.top_juegos !== 'Ninguno') {
-            window.juegosRanking = rep.top_juegos.split(', ');
-        } else {
-            window.juegosRanking = [];
-        }
+        if (rep.top_juegos && rep.top_juegos !== 'Ninguno') window.juegosRanking = rep.top_juegos.split(', ');
+        else window.juegosRanking = [];
 
         if (rep.aforo !== null) {
             const sliderAforo = document.getElementById('aforoTurno');
@@ -118,22 +131,16 @@ async function cargarAsignacionesPrevias() {
         if (rep.estado === 'Completado') {
             const btnFinalizarTurno = document.getElementById('btnFinalizarTurno');
             if (btnFinalizarTurno) btnFinalizarTurno.innerText = 'Actualizar Turno y Salir';
-            
             const btnConfirmarCierre = document.getElementById('btnConfirmarCierre');
             if (btnConfirmarCierre) btnConfirmarCierre.innerText = 'Actualizar Turno';
         }
     }
 
-    const { data } = await supabaseClient
-        .from('reporte_asignaciones')
-        .select(`id, cantidad, juego_id, gabinete_id, progresivo_id, denominaciones, ubicacion, juegos(juego), gabinetes(modelo)`)
-        .eq('reporte_id', reporteIdActual);
+    const { data } = await supabaseClient.from('reporte_asignaciones').select(`id, cantidad, juego_id, gabinete_id, progresivo_id, denominaciones, ubicacion, juegos(juego), gabinetes(modelo)`).eq('reporte_id', reporteIdActual);
 
     if (data) {
         asignacionesEnMemoria = data;
-        data.forEach(asignacion => {
-            juegosUnicosAsignados.add(asignacion.juegos.juego);
-        });
+        data.forEach(asignacion => { juegosUnicosAsignados.add(asignacion.juegos.juego); });
         if(typeof renderizarBottonAsignado === 'function') renderizarBottonAsignado();
     }
 }
@@ -205,14 +212,12 @@ const btnIniciarTurno = document.getElementById('btnIniciarTurno');
 if(btnIniciarTurno){
     btnIniciarTurno.addEventListener('click', async () => {
         const salaId = document.getElementById('selSala').value;
-        const fecha = document.getElementById('turnoFecha').value; // <--- SE LEE LA FECHA
         const ini = document.getElementById('turnoIni').value;
         const fin = document.getElementById('turnoFin').value;
         const usuarioId = localStorage.getItem('usuario_id');
 
-        // <--- VALIDACIÓN INCLUYENDO LA FECHA
-        if (!salaId || !fecha || !ini || !fin) {
-            alert('Por favor selecciona la sala, la fecha y el horario del turno.');
+        if (!salaId || window.fechasTurno.length === 0 || !ini || !fin) {
+            alert('Por favor selecciona la sala, al menos una fecha y el horario del turno.');
             return;
         }
 
@@ -225,7 +230,7 @@ if(btnIniciarTurno){
             .insert([{
                 usuario_id: usuarioId,
                 sala_id: salaId,
-                fecha: fecha, // <--- SE GUARDA EXACTAMENTE LA FECHA MANUAL
+                fecha: window.fechasTurno, // <--- ENVIAMOS EL ARREGLO COMO JSON
                 turno_ini: ini + ':00',
                 turno_fin: fin + ':00'
             }]).select().single();
