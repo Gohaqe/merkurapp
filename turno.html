@@ -8,6 +8,9 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js"></script>
   
   <script>
     // Proteger la ruta si no hay sesión iniciada
@@ -27,7 +30,7 @@
     <div class="w-6"></div> <!-- Espaciador -->
   </header>
 
-  <!-- Contenedor Principal (Scrollable) -->
+  <!-- Contenedor Principal  -->
   <main class="flex-1 overflow-y-auto p-4 space-y-6 pb-32">
     
     <!-- FASE 1: Configurar Turno -->
@@ -56,10 +59,12 @@
       <!-- CONTENEDOR DE FECHA, HORAS Y BOTÓN (Oculto hasta elegir sala) -->
       <div id="bloqueHorasYBtn" class="hidden space-y-4 pt-2">
         
-        <!-- NUEVO: CAMPO DE FECHA -->
+        <!-- NUEVO: SELECTOR MULTI-FECHA -->
         <div>
-          <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Fecha del Turno</label>
-          <input type="date" id="turnoFecha" class="w-full border rounded-xl p-3 bg-slate-50 outline-none focus:border-blue-500 transition-colors">
+          <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Seleccionar los dias que visito la sala</label>
+          <input type="text" id="inputMultiFecha" placeholder="Toca aquí para abrir el calendario..." class="w-full border border-slate-200 rounded-xl p-3 bg-white outline-none focus:border-blue-500 transition-colors text-sm font-bold text-blue-700 cursor-pointer text-center shadow-sm">
+        </div>
+          <div id="contenedorFechas" class="flex flex-wrap gap-2"></div>
         </div>
 
         <div class="grid grid-cols-2 gap-4">
@@ -90,10 +95,10 @@
         <div>
           <label class="block text-xs font-bold text-slate-500 mb-1 uppercase tracking-wider">Plataforma (Mix)</label>
           <div class="relative">
-            <!-- Mantenemos id="selJuego" para que JavaScript siga funcionando perfecto -->
+            
             <select id="selJuego" class="w-full bg-white border border-slate-200 rounded-xl p-3 text-sm focus:border-blue-500 outline-none appearance-none shadow-sm text-slate-700 font-medium">
               <option value="" disabled selected>Seleccione una plataforma...</option>
-              <!-- JS llenará esto -->
+              
             </select>
             <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-400">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
