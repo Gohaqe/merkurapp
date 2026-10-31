@@ -1,157 +1,265 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Estadísticas y BI</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Cargamos la librería de gráficos -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-</head>
-<body class="bg-slate-100 text-slate-800 antialiased min-h-screen flex flex-col">
+// Seguridad
+const userId = localStorage.getItem('usuario_id');
+if (!userId || (localStorage.getItem('usuario_cargo') !== 'Admin' && localStorage.getItem('usuario_cargo') !== 'Administrador')) {
+    alert('Acceso denegado. Solo administradores.');
+    window.location.replace('dashboard.html');
+}
 
-  <!-- Header -->
-  <header class="bg-slate-900 text-white px-6 py-5 shadow-md flex items-center justify-between">
-    <div class="flex items-center gap-3">
-      <button onclick="window.location.href='admin.html'" class="bg-slate-800 p-2 rounded-lg text-slate-300 hover:text-white transition-colors">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
-      </button>
-      <div>
-        <h1 class="text-sm text-purple-400 leading-none font-bold uppercase tracking-wider">Business Intelligence</h1>
-        <h2 class="text-xl font-black leading-tight">Estadísticas</h2>
-      </div>
-    </div>
-  </header>
+// Variables Globales 
+let metricas = { 
+    salas: [], anfitrionas: [], juegos: [], gabinetes: [], progresivos: [], pozos: [], ubicaciones: [],
+    fechas: {}, horas: {}, turnos: { 'Turno Tarde': 0, 'Turno Noche': 0 }, 
+    fallas: {}, chismes: [] 
+};
+// Estado de ordenamiento
+let ordenActivo = { salas: 'desc', anfitrionas: 'desc', juegos: 'desc', gabinetes: 'desc', progresivos: 'desc', pozos: 'desc', ubicaciones: 'desc' };
+let chartInstancias = { dias: null, horas: null, turnos: null, fallas: null };
 
-  <main class="p-6 max-w-7xl mx-auto w-full space-y-6">
+document.addEventListener('DOMContentLoaded', () => {
+    const hoy = new Date();
+    const hace15 = new Date();
+    hace15.setDate(hoy.getDate() - 15);
     
-    <!-- Filtros de Fecha -->
-    <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-wrap gap-4 items-end">
-        <div class="flex-1 min-w-[150px]">
-            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Desde</label>
-            <input type="date" id="filtroInicio" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-sm font-medium outline-none focus:border-purple-500">
-        </div>
-        <div class="flex-1 min-w-[150px]">
-            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Hasta</label>
-            <input type="date" id="filtroFin" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-sm font-medium outline-none focus:border-purple-500">
-        </div>
-        <button id="btnProcesar" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2.5 px-6 rounded-xl shadow-md transition-all active:scale-95">
-            Analizar Datos
-        </button>
-    </div>
+    document.getElementById('filtroInicio').value = hace15.toISOString().split('T')[0];
+    document.getElementById('filtroFin').value = hoy.toISOString().split('T')[0];
+    
+    procesarEstadisticas();
+});
 
-    <div id="loaderData" class="text-center text-purple-600 font-bold hidden py-10">Procesando millones de datos... ⏳</div>
+document.getElementById('btnProcesar').addEventListener('click', procesarEstadisticas);
 
-    <div id="dashboardStats" class="hidden space-y-6">
-        <!-- Gráficos Principales -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <!-- ========================================== -->
-        <!-- NUEVOS MÓDULOS GERENCIALES                 -->
-        <!-- ========================================== -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 pt-2">
-            <!-- Gráfico Día vs Noche -->
-            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
-                <h3 class="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4">Aforo: Tarde vs Noche</h3>
-                <canvas id="chartTurnos" height="200"></canvas>
-            </div>
+async function procesarEstadisticas() {
+    document.getElementById('loaderData').classList.remove('hidden');
+    document.getElementById('dashboardStats').classList.add('hidden');
+
+    const fIni = document.getElementById('filtroInicio').value;
+    const fFin = document.getElementById('filtroFin').value;
+
+    try {
+        // 1. Traemos los reportes completados de Supabase SIN FILTRAR POR FECHA desde SQL
+        const { data: reportesBrutos, error } = await supabaseClient.from('reportes').select(`
+            fecha, aforo, turno_ini, com_competencia,
+            salas(nombre), usuarios(nombres, apellidos), progresivos_iniciales, progresivos_finales,
+            reporte_asignaciones(
+                ubicacion, 
+                juegos(juego), gabinetes(modelo), progresivos(nombre),
+                ocupaciones(bloque_horario, ocupacion), incidencias(error)
+            )
+        `).eq('estado', 'Completado').limit(15000);
+
+        if (error) throw error;
+
+        // 2. NUEVO: Filtramos por fecha manualmente en JavaScript (Soporta JSON Multi-Fecha)
+        const reportes = reportesBrutos.filter(reporte => {
+            let fechasArray = [];
+            if (Array.isArray(reporte.fecha)) fechasArray = reporte.fecha;
+            else if (typeof reporte.fecha === 'string') {
+                if (reporte.fecha.startsWith('[')) {
+                    try { fechasArray = JSON.parse(reporte.fecha); } catch(e) { fechasArray = [reporte.fecha]; }
+                } else {
+                    fechasArray = [reporte.fecha];
+                }
+            }
             
-            <!-- Gráfico de Fallas -->
-            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
-                <h3 class="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4">Top Fallas Técnicas</h3>
-                <canvas id="chartFallas" height="200"></canvas>
-            </div>
+            // Retorna TRUE si AL MENOS UNA de las fechas del turno cae dentro del filtro seleccionado
+            return fechasArray.some(f => f >= fIni && f <= fFin);
+        });
 
-            <!-- Radar de Competencia -->
-            <div class="bg-white p-5 rounded-2xl shadow-sm border border-orange-200 flex flex-col relative overflow-hidden">
-                <div class="absolute top-0 right-0 p-4 opacity-10 text-5xl">🕵️</div>
-                <h3 class="text-sm font-black text-orange-600 uppercase tracking-wider mb-4 z-10">Radar Competencia</h3>
-                <div id="radarCompetencia" class="space-y-3 overflow-y-auto flex-1 max-h-[250px] pr-2 z-10 custom-scrollbar">
-                    <!-- JS inyecta los chismes aquí -->
+        // 3. Pasamos los reportes ya filtrados a nuestra calculadora de métricas
+        calcularMetricas(reportes);
+        dibujarGraficos();
+        renderizarListas();
+
+        document.getElementById('loaderData').classList.add('hidden');
+        document.getElementById('dashboardStats').classList.remove('hidden');
+
+    } catch (err) {
+        alert('Error analizando datos: ' + err.message);
+        document.getElementById('loaderData').classList.add('hidden');
+    }
+}
+
+function calcularMetricas(reportes) {
+    let tmpSalas = {}; let tmpAnfitrionas = {}; let tmpJuegos = {}; 
+    let tmpGabinetes = {}; let tmpProg = {}; let tmpPozos = {}; let tmpUbicaciones = {};
+    metricas.fechas = {}; metricas.horas = {}; metricas.turnos = { 'Turno Tarde': 0, 'Turno Noche': 0 }; metricas.fallas = {}; metricas.chismes = [];
+
+    reportes.forEach(r => {
+        const sala = r.salas?.nombre || 'Desconocida';
+        const anfitriona = r.usuarios ? `${r.usuarios.nombres.split(' ')[0]} ${r.usuarios.apellidos.split(' ')[0]}` : 'Desconocida';
+        let sumaOcupacionTurno = 0;
+        
+        // Extraer la primera fecha del JSON para usarla de referencia en gráficos
+        let fechaPrincipal = '2000-01-01';
+        if (Array.isArray(r.fecha)) fechaPrincipal = r.fecha[0] || fechaPrincipal;
+        else if (typeof r.fecha === 'string') {
+            if (r.fecha.startsWith('[')) {
+                try { fechaPrincipal = JSON.parse(r.fecha)[0] || fechaPrincipal; } catch(e) { fechaPrincipal = r.fecha; }
+            } else fechaPrincipal = r.fecha;
+        }
+
+        if (!tmpSalas[sala]) tmpSalas[sala] = { suma: 0, count: 0 };
+        if (r.aforo) { 
+            tmpSalas[sala].suma += r.aforo; 
+            tmpSalas[sala].count++; 
+            if (r.turno_ini && parseInt(r.turno_ini.substring(0,2)) < 18) metricas.turnos['Turno Tarde'] += r.aforo;
+            else metricas.turnos['Turno Noche'] += r.aforo;
+        }
+
+        if (r.com_competencia && r.com_competencia.trim() !== '' && !r.com_competencia.toLowerCase().includes('sin novedad')) {
+            metricas.chismes.push({ fecha: fechaPrincipal, sala: sala, texto: r.com_competencia });
+        }
+
+        if (!metricas.fechas[fechaPrincipal]) metricas.fechas[fechaPrincipal] = 0;
+
+        if (r.progresivos_iniciales && r.progresivos_finales) {
+            r.progresivos_iniciales.forEach(pIni => {
+                const pFin = r.progresivos_finales[pIni.id];
+                if (pFin) {
+                    let totalCrecimientoGlobal = 0;
+                    let nombreProg = 'Prog ' + pIni.id;
+                    if(r.reporte_asignaciones) {
+                        const asigP = r.reporte_asignaciones.find(a => a.progresivos && a.progresivos.nombre && r.progresivos_finales[pIni.id]);
+                        if (asigP) nombreProg = asigP.progresivos.nombre;
+                    }
+                    Object.keys(pIni.valores).forEach(pozo => {
+                        if (pFin[pozo]) {
+                            let subida = pFin[pozo] - pIni.valores[pozo];
+                            totalCrecimientoGlobal += subida;
+                            let nombrePozoExacto = `${pozo} (${nombreProg}) - ${sala}`;
+                            if(!tmpPozos[nombrePozoExacto]) tmpPozos[nombrePozoExacto] = 0;
+                            tmpPozos[nombrePozoExacto] += subida;
+                        }
+                    });
+                    if (!tmpProg[nombreProg]) tmpProg[nombreProg] = 0;
+                    tmpProg[nombreProg] += totalCrecimientoGlobal;
+                }
+            });
+        }
+
+        if (r.reporte_asignaciones) {
+            r.reporte_asignaciones.forEach(a => {
+                const juego = a.juegos?.juego || 'S/N';
+                const gabinete = a.gabinetes?.modelo || 'S/N';
+                const ubicacion = a.ubicacion || 'Sin ubicar';
+                let sumaOcupacionMaquina = 0;
+
+                if (a.ocupaciones) {
+                    a.ocupaciones.forEach(oc => {
+                        sumaOcupacionMaquina += oc.ocupacion;
+                        let horaLimpia = oc.bloque_horario.split(' - ')[0];
+                        if (!metricas.horas[horaLimpia]) metricas.horas[horaLimpia] = 0;
+                        metricas.horas[horaLimpia] += oc.ocupacion;
+                    });
+                }
+
+                if (a.incidencias) {
+                    a.incidencias.forEach(inc => {
+                        let err = inc.error || 'Desconocido';
+                        if (!metricas.fallas[err]) metricas.fallas[err] = 0;
+                        metricas.fallas[err]++;
+                    });
+                }
+
+                sumaOcupacionTurno += sumaOcupacionMaquina;
+                metricas.fechas[fechaPrincipal] += sumaOcupacionMaquina;
+                
+                if (!tmpJuegos[juego]) tmpJuegos[juego] = 0; tmpJuegos[juego] += sumaOcupacionMaquina;
+                if (!tmpGabinetes[gabinete]) tmpGabinetes[gabinete] = 0; tmpGabinetes[gabinete] += sumaOcupacionMaquina;
+                
+                let ubiExacta = `${ubicacion} (${sala})`; 
+                if (ubicacion !== 'Sin ubicar') {
+                    if (!tmpUbicaciones[ubiExacta]) tmpUbicaciones[ubiExacta] = 0;
+                    tmpUbicaciones[ubiExacta] += sumaOcupacionMaquina;
+                }
+            });
+        }
+
+        if (!tmpAnfitrionas[anfitriona]) tmpAnfitrionas[anfitriona] = 0;
+        tmpAnfitrionas[anfitriona] += sumaOcupacionTurno;
+    });
+
+    metricas.salas = Object.keys(tmpSalas).map(k => ({ nombre: k, valor: tmpSalas[k].count > 0 ? Math.round(tmpSalas[k].suma / tmpSalas[k].count) : 0, sufijo: '%' }));
+    metricas.anfitrionas = Object.keys(tmpAnfitrionas).map(k => ({ nombre: k, valor: tmpAnfitrionas[k], sufijo: ' jug.' }));
+    metricas.juegos = Object.keys(tmpJuegos).map(k => ({ nombre: k, valor: tmpJuegos[k], sufijo: ' jug.' }));
+    metricas.gabinetes = Object.keys(tmpGabinetes).map(k => ({ nombre: k, valor: tmpGabinetes[k], sufijo: ' jug.' }));
+    metricas.progresivos = Object.keys(tmpProg).map(k => ({ nombre: k, valor: tmpProg[k], prefijo: 'S/ ' }));
+    metricas.pozos = Object.keys(tmpPozos).map(k => ({ nombre: k, valor: tmpPozos[k], prefijo: 'S/ ' }));
+    metricas.ubicaciones = Object.keys(tmpUbicaciones).map(k => ({ nombre: k, valor: tmpUbicaciones[k], sufijo: ' jug.' })); 
+}
+
+function renderizarListas() {
+    ['salas', 'anfitrionas', 'juegos', 'gabinetes', 'progresivos', 'pozos', 'ubicaciones'].forEach(categoria => {
+        metricas[categoria].sort((a, b) => ordenActivo[categoria] === 'desc' ? b.valor - a.valor : a.valor - b.valor);
+        const contenedor = document.getElementById(`rank${categoria.charAt(0).toUpperCase() + categoria.slice(1)}`);
+        if(!contenedor) return;
+        contenedor.innerHTML = '';
+
+        if (metricas[categoria].length === 0) {
+            contenedor.innerHTML = '<p class="text-xs text-slate-400 italic">No hay datos</p>';
+            return;
+        }
+
+        metricas[categoria].slice(0, 10).forEach((item, index) => {
+            let color = ordenActivo[categoria] === 'desc' ? (index === 0 ? 'bg-yellow-100 text-yellow-800' : 'bg-slate-50 text-slate-600') : (index === 0 ? 'bg-red-100 text-red-800' : 'bg-slate-50 text-slate-600');
+            contenedor.innerHTML += `
+                <div class="flex justify-between items-center p-2 rounded-lg border border-slate-100 ${color}">
+                    <span class="text-[11px] font-bold truncate pr-2" title="${item.nombre}"><span class="opacity-50 mr-1">${index + 1}.</span> ${item.nombre}</span>
+                    <span class="text-[11px] font-black whitespace-nowrap">${item.prefijo || ''}${item.valor.toLocaleString()}${item.sufijo || ''}</span>
                 </div>
-            </div>
-        </div>
-            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
-                <h3 class="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4">Ocupación por Día (Jugadores)</h3>
-                <canvas id="chartDias" height="100"></canvas>
-            </div>
-            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
-                <h3 class="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4">Mapa de Calor: Horas Pico</h3>
-                <canvas id="chartHoras" height="100"></canvas>
-            </div>
-        </div>
+            `;
+        });
+    });
 
-        <!-- Rankings Dinámicos -->
-        <!-- Rankings Dinámicos (Ahora con 6 columnas distribuidas) -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            
-            <!-- Salas -->
-            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col">
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider">Aforo por Sala</h3>
-                    <button onclick="invertirLista('salas')" class="bg-slate-100 p-1.5 rounded text-slate-500 hover:bg-slate-200 transition-colors" title="Invertir Ranking">↕️</button>
+    const radar = document.getElementById('radarCompetencia');
+    radar.innerHTML = '';
+    if (metricas.chismes.length === 0) {
+        radar.innerHTML = '<p class="text-xs text-orange-400 italic">Sin alertas recientes.</p>';
+    } else {
+        metricas.chismes.slice().reverse().slice(0, 15).forEach(ch => {
+            const fechaF = new Date(ch.fecha).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
+            radar.innerHTML += `
+                <div class="bg-orange-50 p-2 rounded-lg border border-orange-100">
+                    <p class="text-[9px] font-bold text-orange-400 uppercase tracking-wider">${fechaF} • ${ch.sala}</p>
+                    <p class="text-[11px] text-slate-700 font-medium leading-tight mt-0.5">${ch.texto}</p>
                 </div>
-                <div id="rankSalas" class="space-y-2 flex-1"></div>
-            </div>
+            `;
+        });
+    }
+}
 
-            <!-- Anfitrionas -->
-            <div class="bg-white p-5 rounded-2xl shadow-sm border border-indigo-200 flex flex-col">
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-xs font-bold text-indigo-600 uppercase tracking-wider">Top Anfitrionas</h3>
-                    <button onclick="invertirLista('anfitrionas')" class="bg-indigo-50 p-1.5 rounded text-indigo-600 hover:bg-indigo-100 transition-colors" title="Invertir Ranking">↕️</button>
-                </div>
-                <div id="rankAnfitrionas" class="space-y-2 flex-1"></div>
-            </div>
+window.invertirLista = function(categoria) {
+    ordenActivo[categoria] = ordenActivo[categoria] === 'desc' ? 'asc' : 'desc';
+    renderizarListas();
+};
 
-            <!-- Juegos -->
-            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col">
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider">Juegos + Ocupados</h3>
-                    <button onclick="invertirLista('juegos')" class="bg-slate-100 p-1.5 rounded text-slate-500 hover:bg-slate-200 transition-colors">↕️</button>
-                </div>
-                <div id="rankJuegos" class="space-y-2 flex-1"></div>
-            </div>
+function dibujarGraficos() {
+    ['dias', 'horas', 'turnos', 'fallas'].forEach(c => { if (chartInstancias[c]) chartInstancias[c].destroy(); });
 
-            <!-- Gabinetes -->
-            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col">
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider">Gabinetes Favoritos</h3>
-                    <button onclick="invertirLista('gabinetes')" class="bg-slate-100 p-1.5 rounded text-slate-500 hover:bg-slate-200 transition-colors">↕️</button>
-                </div>
-                <div id="rankGabinetes" class="space-y-2 flex-1"></div>
-            </div>
-            
-            <!-- Ubicaciones (Zonas Calientes) -->
-            <div class="bg-white p-5 rounded-2xl shadow-sm border border-orange-200 flex flex-col">
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-xs font-bold text-orange-600 uppercase tracking-wider">Zonas Más Calientes (Ubicación)</h3>
-                    <button onclick="invertirLista('ubicaciones')" class="bg-orange-50 p-1.5 rounded text-orange-600 hover:bg-orange-100 transition-colors" title="Invertir Ranking">↕️</button>
-                </div>
-                <div id="rankUbicaciones" class="space-y-2 flex-1"></div>
-            </div>
+    const lblFechas = Object.keys(metricas.fechas).sort(); 
+    chartInstancias.dias = new Chart(document.getElementById('chartDias').getContext('2d'), {
+        type: 'line',
+        data: { labels: lblFechas, datasets: [{ label: 'Jugadores', data: lblFechas.map(f => metricas.fechas[f]), borderColor: '#9333ea', backgroundColor: '#e9d5ff', fill: true, tension: 0.4 }] },
+        options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+    });
 
-            <!-- Progresivos (Crecimiento Global) -->
-            <div class="bg-white p-5 rounded-2xl shadow-sm border border-emerald-200 flex flex-col">
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-xs font-bold text-emerald-600 uppercase tracking-wider">Progresivos (Global)</h3>
-                    <button onclick="invertirLista('progresivos')" class="bg-emerald-50 p-1.5 rounded text-emerald-600 hover:bg-emerald-100 transition-colors">↕️</button>
-                </div>
-                <div id="rankProgresivos" class="space-y-2 flex-1"></div>
-            </div>
+    const lblHoras = Object.keys(metricas.horas).sort();
+    chartInstancias.horas = new Chart(document.getElementById('chartHoras').getContext('2d'), {
+        type: 'bar',
+        data: { labels: lblHoras, datasets: [{ label: 'Ocupación', data: lblHoras.map(h => metricas.horas[h]), backgroundColor: '#3b82f6', borderRadius: 4 }] },
+        options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+    });
 
-            <!-- Pozos Específicos (+ Sala) -->
-            <div class="bg-white p-5 rounded-2xl shadow-sm border border-emerald-200 flex flex-col">
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-xs font-bold text-emerald-600 uppercase tracking-wider">Pozos que + Suben</h3>
-                    <button onclick="invertirLista('pozos')" class="bg-emerald-50 p-1.5 rounded text-emerald-600 hover:bg-emerald-100 transition-colors">↕️</button>
-                </div>
-                <div id="rankPozos" class="space-y-2 flex-1"></div>
-            </div>
+    chartInstancias.turnos = new Chart(document.getElementById('chartTurnos').getContext('2d'), {
+        type: 'pie',
+        data: { labels: ['Turno Tarde', 'Turno Noche'], datasets: [{ data: [metricas.turnos['Turno Tarde'], metricas.turnos['Turno Noche']], backgroundColor: ['#f59e0b', '#1e1b4b'] }] },
+        options: { plugins: { legend: { position: 'bottom' } } }
+    });
 
-        </div>
-  </main>
-
-  <script src="js/supabase.js"></script>
-  <script src="js/estadisticas.js"></script>
-</body>
-</html>
+    const fallasSorted = Object.entries(metricas.fallas).sort((a,b)=>b[1]-a[1]).slice(0,5);
+    chartInstancias.fallas = new Chart(document.getElementById('chartFallas').getContext('2d'), {
+        type: 'doughnut',
+        data: { labels: fallasSorted.map(f => f[0]), datasets: [{ data: fallasSorted.map(f => f[1]), backgroundColor: ['#ef4444', '#f97316', '#eab308', '#84cc16', '#06b6d4'] }] },
+        options: { plugins: { legend: { position: 'right', labels: { boxWidth: 10, font: {size: 9} } } } }
+    });
+}
