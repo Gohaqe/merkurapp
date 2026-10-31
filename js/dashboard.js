@@ -15,19 +15,25 @@ if (cargoActual === 'Admin' || cargoActual === 'Administrador') {
 document.getElementById('userNameDisplay').textContent = localStorage.getItem('usuario_nombre');
 
 // ==========================================
-// 2. CERRAR SESIÓN
+// 2. CERRAR SESIÓN (LIMPIA LA MEMORIA)
 // ==========================================
 document.getElementById('btnLogout').addEventListener('click', () => {
     if(confirm('¿Seguro que deseas cerrar sesión?')) {
         localStorage.removeItem('usuario_id');
         localStorage.removeItem('usuario_nombre');
         localStorage.removeItem('usuario_cargo');
+        
+        localStorage.removeItem('turno_activo_id');
+        localStorage.removeItem('turno_ini');
+        localStorage.removeItem('turno_fin');
+        localStorage.removeItem('progresivos_turno');
+        
         window.location.replace('index.html');
     }
 });
 
 // ==========================================
-// 3. VERIFICAR TURNO A MEDIAS
+// 3. VERIFICAR TURNO A MEDIAS Y BOTÓN DE RESCATE
 // ==========================================
 const turnoActivo = localStorage.getItem('turno_activo_id');
 const btnMainTurno = document.getElementById('btnMainTurno');
@@ -37,6 +43,25 @@ if (turnoActivo) {
     btnMainTurno.classList.remove('bg-blue-600', 'hover:bg-blue-700');
     btnMainTurno.classList.add('bg-emerald-600', 'hover:bg-emerald-700');
     textoBtnTurno.textContent = 'CONTINUAR TURNO ACTUAL';
+
+    if (!document.getElementById('btnAbortarTurno')) {
+        const btnAbortar = document.createElement('button');
+        btnAbortar.id = 'btnAbortarTurno';
+        btnAbortar.className = 'w-full mt-3 text-[11px] font-black text-red-400 hover:text-red-600 uppercase tracking-wider transition-colors';
+        btnAbortar.textContent = '⚠️ ¿Se atascó? Cancelar este turno';
+        
+        btnAbortar.onclick = async () => {
+            if(confirm('¿Deseas eliminar este turno incompleto de la memoria y empezar uno nuevo?')) {
+                await supabaseClient.from('reportes').delete().eq('id', turnoActivo);
+                localStorage.removeItem('turno_activo_id');
+                localStorage.removeItem('turno_ini');
+                localStorage.removeItem('turno_fin');
+                localStorage.removeItem('progresivos_turno');
+                window.location.reload();
+            }
+        };
+        btnMainTurno.parentNode.insertBefore(btnAbortar, btnMainTurno.nextSibling);
+    }
 }
 
 btnMainTurno.addEventListener('click', () => { window.location.href = 'turno.html'; });
@@ -84,7 +109,24 @@ window.cargarHistorial = async function() {
             div.className = "bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col space-y-3 cursor-pointer hover:shadow-md transition-shadow active:scale-[0.98]";
             div.onclick = () => abrirDetalleTurno(reporte.id);
             
-            const fechaLimpia = new Date(reporte.fecha).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
+            // ==========================================
+            // NUEVO: TRADUCTOR MULTIFECHA PARA HISTORIAL
+            // ==========================================
+            let arrFechas = [];
+            if (Array.isArray(reporte.fecha)) arrFechas = reporte.fecha;
+            else if (typeof reporte.fecha === 'string') {
+                if (reporte.fecha.startsWith('[')) {
+                    try { arrFechas = JSON.parse(reporte.fecha); } catch(e) { arrFechas = [reporte.fecha]; }
+                } else arrFechas = [reporte.fecha];
+            } else arrFechas = ['--/--/----'];
+
+            const fechaLimpia = arrFechas.map(f => {
+                if (f === '--/--/----') return f;
+                const fSegura = f.includes('T') ? f : f + 'T12:00:00';
+                return new Date(fSegura).toLocaleDateString('es-PE', { day: '2-digit', month: 'short' });
+            }).join(' | ');
+            // ==========================================
+            
             const horaIni = reporte.turno_ini ? reporte.turno_ini.substring(0, 5) : '--:--';
             const horaFin = reporte.turno_fin ? reporte.turno_fin.substring(0, 5) : '--:--';
 
@@ -175,19 +217,34 @@ window.abrirDetalleTurno = async function(reporteId) {
         if (error) throw error;
 
         if (reporte) {
-            window.reporteActualData = reporte; // Guardamos para exportar
+            window.reporteActualData = reporte;
             
-            // Cabecera
             document.getElementById('detSalaNombre').textContent = reporte.salas?.nombre || 'Sala sin nombre';
             const iniF = reporte.turno_ini ? reporte.turno_ini.substring(0, 5) : '--:--';
             const finF = reporte.turno_fin ? reporte.turno_fin.substring(0, 5) : '--:--';
-            const fechaLimpia = reporte.fecha ? new Date(reporte.fecha).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' }) : '--/--/----';
+            
+            // ==========================================
+            // NUEVO: TRADUCTOR MULTIFECHA PARA EL DETALLE
+            // ==========================================
+            let arrFechas = [];
+            if (Array.isArray(reporte.fecha)) arrFechas = reporte.fecha;
+            else if (typeof reporte.fecha === 'string') {
+                if (reporte.fecha.startsWith('[')) {
+                    try { arrFechas = JSON.parse(reporte.fecha); } catch(e) { arrFechas = [reporte.fecha]; }
+                } else arrFechas = [reporte.fecha];
+            } else arrFechas = ['--/--/----'];
+
+            const fechaLimpia = arrFechas.map(f => {
+                if (f === '--/--/----') return f;
+                const fSegura = f.includes('T') ? f : f + 'T12:00:00';
+                return new Date(fSegura).toLocaleDateString('es-PE', { day: '2-digit', month: 'short', year: 'numeric' });
+            }).join(' | ');
+            // ==========================================
+            
             document.getElementById('detFechaHora').textContent = `${fechaLimpia} • ${iniF} a ${finF}`;
             
-            // Aforo
             document.getElementById('detAforo').textContent = reporte.aforo !== null ? `${reporte.aforo}%` : 'N/A';
 
-            // Top Juegos
             const topJuegosArray = reporte.top_juegos && reporte.top_juegos !== 'Ninguno' ? reporte.top_juegos.split(', ') : [];
             const contenedorTopList = document.getElementById('detTopJuegosList');
             if (topJuegosArray.length > 0) {
@@ -199,7 +256,6 @@ window.abrirDetalleTurno = async function(reporteId) {
                 document.getElementById('cajaTopJuegos').classList.add('hidden');
             }
 
-            // Comentarios
             document.getElementById('detComProducto').textContent = reporte.com_produc || 'Sin comentarios.';
             document.getElementById('detComSala').textContent = reporte.com_sala || 'Sin comentarios.';
             const cajaCompetencia = document.getElementById('cajaCompetencia');
@@ -210,7 +266,6 @@ window.abrirDetalleTurno = async function(reporteId) {
                 cajaCompetencia.classList.add('hidden');
             }
 
-            // Maquinas y Progresivos
             const contenedorMaquinas = document.getElementById('detMaquinasContenedor');
             let htmlMaquinas = '';
 
@@ -221,7 +276,6 @@ window.abrirDetalleTurno = async function(reporteId) {
                     const juego = asig.juegos?.juego || 'Desconocido';
                     const gabinete = asig.gabinetes?.modelo || 'Desconocido';
                     const denom = asig.denominaciones || 'N/A';
-                    // INYECTAMOS LA UBICACIÓN CON SU ÍCONO
                     const ubicacionHTML = asig.ubicacion ? `<p class="text-[10px] text-blue-600 font-bold mt-1 tracking-wide">📍 ${asig.ubicacion}</p>` : '';
 
                     let htmlHoras = '';
@@ -370,10 +424,17 @@ if(btnExcel) {
         const r = window.reporteActualData;
         if (!r) return;
 
+        // Limpiar fechas para el Excel
+        let fechaExport = '';
+        if (Array.isArray(r.fecha)) fechaExport = r.fecha.join(', ');
+        else if (typeof r.fecha === 'string' && r.fecha.startsWith('[')) {
+            try { fechaExport = JSON.parse(r.fecha).join(', '); } catch(e) { fechaExport = r.fecha; }
+        } else fechaExport = r.fecha || '';
+
         const datosExcel = [];
         const baseRow = {
             "Sala": r.salas?.nombre || '',
-            "Fecha": r.fecha || '',
+            "Fecha": fechaExport, // <--- FECHA ARREGLADA PARA EL EXCEL
             "Hora Inicio": r.turno_ini ? r.turno_ini.substring(0, 5) : '',
             "Hora Fin": r.turno_fin ? r.turno_fin.substring(0, 5) : '',
             "Aforo (%)": r.aforo !== null ? r.aforo : '',
@@ -413,7 +474,7 @@ if(btnExcel) {
                     "Plataforma (Mix)": a.juegos?.juego || '',
                     "Gabinete": a.gabinetes?.modelo || '',
                     "Cantidad": a.cantidad || '',
-                    "Ubicación": a.ubicacion || 'No registrada', // Agregado a Excel
+                    "Ubicación": a.ubicacion || 'No registrada',
                     "Denominaciones": a.denominaciones || '',
                     "Ocupación (Horas y Apuestas)": ocupStr,
                     "Fallas Reportadas": fallaStr,
@@ -427,6 +488,6 @@ if(btnExcel) {
         const worksheet = XLSX.utils.json_to_sheet(datosExcel);
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, "Reporte Turno");
-        XLSX.writeFile(workbook, `Reporte_Turno_${r.salas?.nombre || 'Sala'}_${r.fecha}.xlsx`);
+        XLSX.writeFile(workbook, `Reporte_Turno_${r.salas?.nombre || 'Sala'}.xlsx`);
     });
 }
