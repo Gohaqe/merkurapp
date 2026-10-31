@@ -29,8 +29,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const inputMultiFecha = document.getElementById('inputMultiFecha');
     
     if (inputMultiFecha) {
-        const hoyStr = new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().split('T')[0];
-        window.fechasTurno = [hoyStr]; // Inicia con hoy por defecto
+        // Arrancamos con la lista vacía para OBLIGAR a que seleccionen la fecha
+        window.fechasTurno = []; 
 
         flatpickr(inputMultiFecha, {
             mode: "multiple",
@@ -38,7 +38,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             dateFormat: "Y-m-d",    // Formato interno para la Base de Datos
             altInput: true,         // Crea un texto visual bonito
             altFormat: "d M",       // Formato visual (Ej: "25 Oct")
-            defaultDate: [hoyStr],
+            // defaultDate: [hoyStr], <--- ELIMINADO PARA QUE INICIE EN BLANCO
             conjunction: " • ",     // Pone un puntito entre cada fecha (Ej: 25 Oct • 26 Oct)
             onChange: function(selectedDates, dateStr, instance) {
                 // Cada vez que tocan una fecha, se actualiza nuestra lista
@@ -230,7 +230,7 @@ if(btnIniciarTurno){
             .insert([{
                 usuario_id: usuarioId,
                 sala_id: salaId,
-                fecha: window.fechasTurno, // <--- ENVIAMOS EL ARREGLO COMO JSON
+                fecha: window.fechasTurno, 
                 turno_ini: ini + ':00',
                 turno_fin: fin + ':00'
             }]).select().single();
