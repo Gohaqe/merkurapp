@@ -12,7 +12,7 @@ document.getElementById('btnAsignar').addEventListener('click', async () => {
     const juegoId = document.getElementById('selJuego').value;
     const gabineteId = document.getElementById('selGabinete').value;
     const cantidad = document.getElementById('cantMaquina').value;
-    const ubicacion = document.getElementById('ubicacionMaquina').value.trim(); // <--- NUEVO
+    const ubicacion = document.getElementById('ubicacionMaquina').value.trim(); 
     const denom = denominacionesSeleccionadas.length > 0 ? denominacionesSeleccionadas.join(' / ') : null;
 
     if (!juegoId || !gabineteId || !cantidad || denominacionesSeleccionadas.length === 0) {
@@ -30,7 +30,7 @@ document.getElementById('btnAsignar').addEventListener('click', async () => {
         cantidad: parseInt(cantidad),
         progresivo_id: typeof progresivoSeleccionadoId !== 'undefined' ? progresivoSeleccionadoId : null,
         denominaciones: denom,
-        ubicacion: ubicacion || null // <--- NUEVO
+        ubicacion: ubicacion || null
     };
 
     try {
@@ -67,20 +67,32 @@ document.getElementById('btnAsignar').addEventListener('click', async () => {
             asignacionesEnMemoria.push(dataNuevo);
         }
 
-        // LIMPIEZA
+        // ==========================================
+        // LIMPIEZA PROFUNDA DESPUÉS DE GUARDAR
+        // ==========================================
         document.getElementById('cantMaquina').value = '1';
         document.getElementById('selJuego').value = '';
         document.getElementById('selGabinete').value = '';
-        document.getElementById('ubicacionMaquina').value = ''; // <--- NUEVO
+        document.getElementById('ubicacionMaquina').value = ''; 
         
+        // 1. Limpiar memoria de denominaciones
         denominacionesSeleccionadas = [];
+        
+        // 2. Limpiar el botón principal
         const btnDenom = document.getElementById('btnAbrirModalDenom');
         btnDenom.textContent = 'Tocar para seleccionar...';
         btnDenom.classList.replace('text-blue-700', 'text-slate-400');
         btnDenom.classList.replace('bg-blue-50', 'bg-white');
         btnDenom.classList.remove('border-blue-300', 'font-bold');
-        document.querySelectorAll('.denom-btn').forEach(b => b.classList.remove('bg-blue-100', 'border-blue-500', 'text-blue-700'));
+        
+        // 3. Limpiar los botones internos del modal
+        const botonesModal = document.getElementById('contenedorBotonesDenom').querySelectorAll('button');
+        botonesModal.forEach(b => {
+            b.classList.remove('bg-blue-100', 'border-blue-500', 'text-blue-700', 'shadow-sm');
+            b.classList.add('bg-white', 'border-slate-200', 'text-slate-600');
+        });
 
+        // 4. Limpiar progresivo
         progresivoSeleccionadoId = null;
         const txtProgresivo = document.getElementById('txtProgresivoElegido');
         txtProgresivo.textContent = "Ninguno configurado";
@@ -112,7 +124,7 @@ window.renderizarBottonAsignado = function() {
         const nombreJuego = asig.juegos?.juego || 'Juego Desconocido';
         const modeloGabinete = asig.gabinetes?.modelo || 'Gabinete Desconocido';
         const cantidad = asig.cantidad;
-        const ubicacionHTML = asig.ubicacion ? `<p class="text-[10px] text-slate-500 font-medium mt-1">📍 ${asig.ubicacion}</p>` : ''; // <--- NUEVO
+        const ubicacionHTML = asig.ubicacion ? `<p class="text-[10px] text-slate-500 font-medium mt-1">📍 ${asig.ubicacion}</p>` : ''; 
 
         if (asig.oculto) {
             zonaBotones.innerHTML += `
@@ -177,20 +189,24 @@ window.editarAsignacion = function(index) {
     document.getElementById('selJuego').value = asig.juego_id || '';
     document.getElementById('selGabinete').value = asig.gabinete_id || '';
     document.getElementById('cantMaquina').value = asig.cantidad || 1;
-    document.getElementById('ubicacionMaquina').value = asig.ubicacion || ''; // <--- NUEVO
+    document.getElementById('ubicacionMaquina').value = asig.ubicacion || ''; 
     
     const btnDenom = document.getElementById('btnAbrirModalDenom');
+    const botonesModal = document.getElementById('contenedorBotonesDenom').querySelectorAll('button');
+
     if (asig.denominaciones) {
         denominacionesSeleccionadas = asig.denominaciones.split(' / ');
         btnDenom.textContent = asig.denominaciones;
         btnDenom.classList.add('text-blue-700', 'font-bold', 'bg-blue-50', 'border-blue-300');
         btnDenom.classList.remove('text-slate-400', 'bg-white');
         
-        document.querySelectorAll('.denom-btn').forEach(b => {
+        botonesModal.forEach(b => {
             if (denominacionesSeleccionadas.includes(b.textContent)) {
-                b.classList.add('bg-blue-100', 'border-blue-500', 'text-blue-700');
+                b.classList.add('bg-blue-100', 'border-blue-500', 'text-blue-700', 'shadow-sm');
+                b.classList.remove('bg-white', 'border-slate-200', 'text-slate-600');
             } else {
-                b.classList.remove('bg-blue-100', 'border-blue-500', 'text-blue-700');
+                b.classList.remove('bg-blue-100', 'border-blue-500', 'text-blue-700', 'shadow-sm');
+                b.classList.add('bg-white', 'border-slate-200', 'text-slate-600');
             }
         });
     } else {
@@ -199,7 +215,11 @@ window.editarAsignacion = function(index) {
         btnDenom.classList.replace('text-blue-700', 'text-slate-400');
         btnDenom.classList.replace('bg-blue-50', 'bg-white');
         btnDenom.classList.remove('border-blue-300', 'font-bold');
-        document.querySelectorAll('.denom-btn').forEach(b => b.classList.remove('bg-blue-100', 'border-blue-500', 'text-blue-700'));
+        
+        botonesModal.forEach(b => {
+            b.classList.remove('bg-blue-100', 'border-blue-500', 'text-blue-700', 'shadow-sm');
+            b.classList.add('bg-white', 'border-slate-200', 'text-slate-600');
+        });
     }
 
     const txtProgresivo = document.getElementById('txtProgresivoElegido');
@@ -254,7 +274,6 @@ window.abrirModalOcupacion = async function(index) {
         document.getElementById('modalContent').classList.remove('translate-y-full');
     }, 10);
 
-    // 1. CARGAR HORAS Y APUESTAS DE SUPABASE
     const { data: ocupacionesPrevias } = await supabaseClient
         .from('ocupaciones')
         .select('id, bloque_horario, ocupacion, ap_minima, ap_maxima')
@@ -271,7 +290,6 @@ window.abrirModalOcupacion = async function(index) {
         let valMax = datoPrevio && datoPrevio.ap_maxima !== null ? datoPrevio.ap_maxima : '';
         let idRegistro = datoPrevio ? datoPrevio.id : '';
 
-        // Diseño con las 3 cajas por cada hora
         contenedor.innerHTML += `
             <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 flex flex-col gap-2">
                 <label class="block text-[10px] font-bold uppercase text-slate-500 text-center border-b border-slate-200 pb-1 mb-1">${bloque}</label>
@@ -293,7 +311,6 @@ window.abrirModalOcupacion = async function(index) {
         `;
     });
 
-    // Guardado manual inteligente que evita fallas en la base de datos
     document.querySelectorAll('.input-ocupacion-multi').forEach(input => {
         input.addEventListener('blur', async function() {
             const bloqueHorario = this.getAttribute('data-bloque');
@@ -320,10 +337,8 @@ window.abrirModalOcupacion = async function(index) {
             };
 
             if (idRegistro && idRegistro !== 'undefined' && idRegistro !== '') {
-                // Actualizamos si ya existe en la base de datos
                 await supabaseClient.from('ocupaciones').update(payload).eq('id', idRegistro);
             } else {
-                // Insertamos por primera vez
                 const { data, error } = await supabaseClient.from('ocupaciones').insert([payload]).select('id').single();
                 if (!error && data) {
                     inputOcup.setAttribute('data-idbd', data.id);
@@ -337,7 +352,6 @@ window.abrirModalOcupacion = async function(index) {
         });
     });
 
-    // 2. CARGAR FALLAS
     const { data: fallasPrevias } = await supabaseClient.from('incidencias').select('id, serie, error').eq('asignacion_id', asignId);
     contenedorFallas.innerHTML = '';
     
